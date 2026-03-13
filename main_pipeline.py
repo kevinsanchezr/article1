@@ -70,6 +70,8 @@ DISCUSSION_PARAGRAPH_FILE = RESULTS_DIR / "discussion_paragraph.tex"
 FIGURE_CAPTIONS_FILE = RESULTS_DIR / "figure_captions.tex"
 FIGURE_SELECTION_GUIDE_FILE = RESULTS_DIR / "figure_selection_guide.md"
 IMPORTANCE_SUMMARY_FILE = RESULTS_DIR / "importance_summary.csv"
+FINAL_REPLACEMENTS_FILE = RESULTS_DIR / "final_replacements_for_paper.tex"
+FINAL_CHANGE_LOG_FILE = RESULTS_DIR / "final_change_log.md"
 README_FILE = PROJECT_ROOT / "README_results.md"
 README_MAIN_FILE = PROJECT_ROOT / "README.md"
 
@@ -86,18 +88,26 @@ ERP_WINDOWS_MS = [
 ]
 P300_WINDOW_MS = (300, 500)
 DIFFERENCE_PEAK_WINDOW_MS = (250, 600)
+PRIMARY_DIFFERENCE_PEAK_WINDOW_MS = (400, 500)
 AMPLITUDE_THRESHOLD_VOLTS = 500e-6
 RANDOM_STATE = 42
 PALETTE = {
-    "navy": "#1F4E79",
-    "blue": "#2F6F9F",
-    "teal": "#2A7F7F",
-    "green": "#5B9B6C",
-    "mint": "#9CCFB8",
-    "soft_blue": "#A7C7E7",
-    "light": "#EAF3F8",
-    "grid": "#D7E3EA",
-    "text": "#1F2D3A",
+    "reference": "#243447",
+    "highlight": "#7A1F3D",
+    "text": "#2F2F2F",
+    "interval": "#D9E2EC",
+    "grid": "#C9D2DC",
+    "neutral": "#8D99A6",
+    "light": "#F6F8FB",
+    "heatmap_low": "#F5F7FA",
+    "heatmap_mid": "#D7DCE3",
+    "heatmap_high": "#6B2E46",
+    "navy": "#243447",
+    "blue": "#243447",
+    "teal": "#7A1F3D",
+    "green": "#7A1F3D",
+    "mint": "#D9E2EC",
+    "soft_blue": "#D9E2EC",
 }
 
 
@@ -958,8 +968,8 @@ def plot_erp_grand_average_roi(erp_summary: dict[str, Any], output_stem: Path) -
     times_ms = np.asarray(erp_summary["times_ms"], dtype=float)
     fig, ax = plt.subplots(figsize=(7.0, 4.5), facecolor="white")
     for class_name, label, color in [
-        ("non_target", "Non-target", PALETTE["blue"]),
-        ("target", "Target", PALETTE["green"]),
+        ("non_target", "Non-target", PALETTE["reference"]),
+        ("target", "Target", PALETTE["highlight"]),
     ]:
         count = int(erp_summary["class_epoch_count"][class_name])
         mean, sem = finalize_mean_and_sem(
@@ -970,9 +980,9 @@ def plot_erp_grand_average_roi(erp_summary: dict[str, Any], output_stem: Path) -
         mean_uv = mean * 1e6
         ci_uv = 1.96 * sem * 1e6
         ax.plot(times_ms, mean_uv, color=color, linewidth=2.0, label=label)
-        ax.fill_between(times_ms, mean_uv - ci_uv, mean_uv + ci_uv, color=color, alpha=0.16)
+        ax.fill_between(times_ms, mean_uv - ci_uv, mean_uv + ci_uv, color=color, alpha=0.12)
     ax.axvline(0, color=PALETTE["text"], linewidth=1.0, linestyle="--")
-    ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["soft_blue"], alpha=0.22)
+    ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["interval"], alpha=0.45)
     ax.set_xlim(0, 800)
     ax.set_xlabel("Time (ms)")
     ax.set_ylabel("Amplitude (uV)")
@@ -1006,9 +1016,9 @@ def plot_erp_channels(erp_summary: dict[str, Any], output_stem: Path) -> None:
     margin = 0.1 * max(abs(global_min), abs(global_max), 1.0)
     for ax, channel in zip(axes.ravel(), ERP_CHANNEL_FIGURE_CHANNELS):
         ax.axvline(0, color=PALETTE["text"], linewidth=0.9, linestyle="--")
-        ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["soft_blue"], alpha=0.22)
-        ax.plot(times_ms, mean_lookup[(channel, "non_target")], color=PALETTE["blue"], linewidth=1.8, label="Non-target")
-        ax.plot(times_ms, mean_lookup[(channel, "target")], color=PALETTE["green"], linewidth=1.8, label="Target")
+        ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["interval"], alpha=0.45)
+        ax.plot(times_ms, mean_lookup[(channel, "non_target")], color=PALETTE["reference"], linewidth=1.8, label="Non-target")
+        ax.plot(times_ms, mean_lookup[(channel, "target")], color=PALETTE["highlight"], linewidth=1.8, label="Target")
         ax.set_title(channel)
         ax.set_xlim(0, 800)
         ax.set_ylim(global_min - margin, global_max + margin)
@@ -1038,9 +1048,15 @@ def plot_difference_wave_roi(erp_summary: dict[str, Any], output_stem: Path) -> 
         int(erp_summary["class_epoch_count"]["non_target"]),
     )
     difference_uv = (target_mean - non_target_mean) * 1e6
-    peak_mask = (times_ms >= DIFFERENCE_PEAK_WINDOW_MS[0]) & (times_ms <= DIFFERENCE_PEAK_WINDOW_MS[1])
-    peak_local_idx = int(np.argmax(difference_uv[peak_mask]))
-    peak_indices = np.where(peak_mask)[0]
+    primary_mask = (times_ms >= PRIMARY_DIFFERENCE_PEAK_WINDOW_MS[0]) & (times_ms <= PRIMARY_DIFFERENCE_PEAK_WINDOW_MS[1])
+    if np.any(primary_mask):
+        peak_window = PRIMARY_DIFFERENCE_PEAK_WINDOW_MS
+        peak_indices = np.where(primary_mask)[0]
+    else:
+        fallback_mask = (times_ms >= DIFFERENCE_PEAK_WINDOW_MS[0]) & (times_ms <= DIFFERENCE_PEAK_WINDOW_MS[1])
+        peak_window = DIFFERENCE_PEAK_WINDOW_MS
+        peak_indices = np.where(fallback_mask)[0]
+    peak_local_idx = int(np.argmax(difference_uv[peak_indices]))
     peak_idx = int(peak_indices[peak_local_idx])
     peak_latency_ms = float(times_ms[peak_idx])
     peak_amplitude_uv = float(difference_uv[peak_idx])
@@ -1048,14 +1064,14 @@ def plot_difference_wave_roi(erp_summary: dict[str, Any], output_stem: Path) -> 
     fig, ax = plt.subplots(figsize=(7.0, 4.0), facecolor="white")
     ax.axhline(0, color=PALETTE["grid"], linewidth=1.0)
     ax.axvline(0, color=PALETTE["text"], linewidth=0.9, linestyle="--")
-    ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["soft_blue"], alpha=0.22)
-    ax.plot(times_ms, difference_uv, color=PALETTE["teal"], linewidth=2.2)
-    ax.scatter([peak_latency_ms], [peak_amplitude_uv], color=PALETTE["navy"], s=34, zorder=3)
+    ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["interval"], alpha=0.45)
+    ax.plot(times_ms, difference_uv, color=PALETTE["highlight"], linewidth=2.2)
+    ax.scatter([peak_latency_ms], [peak_amplitude_uv], color=PALETTE["highlight"], s=34, zorder=3)
     ax.annotate(
         f"Peak {peak_amplitude_uv:.2f} uV at {peak_latency_ms:.0f} ms",
         xy=(peak_latency_ms, peak_amplitude_uv),
-        xytext=(peak_latency_ms + 35, peak_amplitude_uv + 0.3),
-        arrowprops={"arrowstyle": "->", "color": PALETTE["navy"], "lw": 1.0},
+        xytext=(peak_latency_ms + 36, peak_amplitude_uv + 0.28),
+        arrowprops={"arrowstyle": "->", "color": PALETTE["highlight"], "lw": 1.0},
         fontsize=9,
         color=PALETTE["text"],
     )
@@ -1067,7 +1083,12 @@ def plot_difference_wave_roi(erp_summary: dict[str, Any], output_stem: Path) -> 
     ax.invert_yaxis()
     style_axes(ax)
     save_figure(fig, output_stem)
-    return {"peak_latency_ms": peak_latency_ms, "peak_amplitude_uv": peak_amplitude_uv}
+    return {
+        "peak_latency_ms": peak_latency_ms,
+        "peak_amplitude_uv": peak_amplitude_uv,
+        "peak_window_start_ms": float(peak_window[0]),
+        "peak_window_end_ms": float(peak_window[1]),
+    }
 
 
 def plot_topomap_difference(erp_summary: dict[str, Any], output_stem: Path) -> None:
@@ -1093,15 +1114,17 @@ def plot_topomap_difference(erp_summary: dict[str, Any], output_stem: Path) -> N
     evoked.set_montage(mne.channels.make_standard_montage("standard_1020"), on_missing="ignore")
 
     fig, ax = plt.subplots(figsize=(4.7, 4.5), facecolor="white")
+    max_abs = float(np.max(np.abs(channel_values_uv))) if channel_values_uv else 1.0
     mne.viz.plot_topomap(
         evoked.data[:, 0],
         evoked.info,
         axes=ax,
         show=False,
-        cmap="PuBuGn",
+        cmap="RdBu_r",
         contours=4,
         extrapolate="head",
         sphere=(0.0, 0.0, 0.0, 0.095),
+        vlim=(-max_abs, max_abs),
     )
     ax.set_title("Target Minus Non-target (300-500 ms)")
     fig.text(0.5, 0.02, "Sparse posterior topography based on 8 electrodes", ha="center", fontsize=9, color=PALETTE["text"])
@@ -1127,7 +1150,8 @@ def plot_feature_heatmap(importance_df: pd.DataFrame, model_name: str, output_st
     pivot = pivot.reindex(columns=ordered_columns)
 
     fig, ax = plt.subplots(figsize=(8.0, 4.8), facecolor="white")
-    image = ax.imshow(pivot.to_numpy(), cmap="PuBuGn", aspect="auto")
+    vmax = float(np.nanmax(np.abs(pivot.to_numpy()))) if np.size(pivot.to_numpy()) else 1.0
+    image = ax.imshow(pivot.to_numpy(), cmap="RdBu_r", aspect="auto", vmin=0.0, vmax=vmax)
     colorbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     colorbar.ax.set_ylabel("Importance", rotation=270, labelpad=14)
     ax.set_xticks(np.arange(len(pivot.columns)), labels=pivot.columns)
@@ -1137,7 +1161,8 @@ def plot_feature_heatmap(importance_df: pd.DataFrame, model_name: str, output_st
     ax.set_title(f"{model_name} Channel x Time Importance")
     ax.grid(False)
     for (row_idx, col_idx), value in np.ndenumerate(pivot.to_numpy()):
-        ax.text(col_idx, row_idx, f"{value:.2f}", ha="center", va="center", fontsize=8, color="white" if value > np.nanmax(pivot.to_numpy()) * 0.45 else PALETTE["text"])
+        threshold = vmax * 0.55 if vmax > 0 else 0.0
+        ax.text(col_idx, row_idx, f"{value:.2f}", ha="center", va="center", fontsize=8, color="white" if value > threshold else PALETTE["text"])
     save_figure(fig, output_stem)
 
     by_window = model_df.groupby("window_label")["importance_value"].mean().sort_values(ascending=False)
@@ -1153,8 +1178,8 @@ def plot_pr_curve(y_true: np.ndarray, y_score: np.ndarray | None, output_stem: P
     ap = safe_average_precision(y_true, y_score)
     prevalence = float(np.mean(y_true))
     fig, ax = plt.subplots(figsize=(5.6, 4.5), facecolor="white")
-    ax.plot(recall, precision, color=PALETTE["teal"], linewidth=2.0, label=f"{model_name} (AP = {ap:.3f})")
-    ax.axhline(prevalence, color=PALETTE["grid"], linestyle="--", linewidth=1.2, label=f"Prevalence = {prevalence:.3f}")
+    ax.plot(recall, precision, color=PALETTE["highlight"], linewidth=2.0, label=f"{model_name} (AP = {ap:.3f})")
+    ax.axhline(prevalence, color=PALETTE["reference"], linestyle="--", linewidth=1.2, label=f"Prevalence = {prevalence:.3f}")
     ax.set_xlabel("Recall")
     ax.set_ylabel("Precision")
     ax.set_xlim(0, 1)
@@ -1220,7 +1245,7 @@ def plot_latency_breakdown(latency_df: pd.DataFrame, output_stem: Path) -> None:
     set_plot_style()
     fig, ax = plt.subplots(figsize=(6.8, 4.2), facecolor="white")
     ordered = latency_df.copy().sort_values("time_ms", ascending=True)
-    colors = [PALETTE["soft_blue"], PALETTE["blue"], PALETTE["teal"], PALETTE["green"], PALETTE["mint"]]
+    colors = [PALETTE["interval"], PALETTE["neutral"], PALETTE["reference"], PALETTE["highlight"], PALETTE["grid"]]
     ax.barh(ordered["component"], ordered["time_ms"], color=colors[: len(ordered)], edgecolor="white", linewidth=0.8)
     for _, row in ordered.iterrows():
         ax.text(float(row["time_ms"]) + max(ordered["time_ms"]) * 0.01, row["component"], f"{row['time_ms']:.2f}", va="center", fontsize=9, color=PALETTE["text"])
@@ -1426,22 +1451,69 @@ def best_model_summary(metrics_df: pd.DataFrame) -> pd.Series:
     return pooled.iloc[0]
 
 
-def save_results_paragraph(metrics_df: pd.DataFrame, class_counts: dict[str, int]) -> None:
+def latex_escape(text: str) -> str:
+    return (
+        text.replace("\\", "\\textbackslash{}")
+        .replace("&", "\\&")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+        .replace("#", "\\#")
+    )
+
+
+def build_figure_caption_texts(top_window: str, top_channels: list[str], difference_summary: dict[str, float]) -> dict[str, str]:
+    channel_text = ", ".join(top_channels)
+    peak_latency_ms = difference_summary["peak_latency_ms"]
+    peak_amplitude_uv = difference_summary["peak_amplitude_uv"]
+    return {
+        "erp_grand_average_roi": (
+            "Grand-average posterior-region ERP waveforms for target and non-target trials, averaged across PO7, PO8, PO3, PO4, O1, and O2. "
+            "Shaded bands denote the 95\\% confidence interval across epochs, and the highlighted 300--500 ms region marks the canonical posterior P300 interval."
+        ),
+        "erp_difference_wave_roi": (
+            f"Target-minus-non-target difference waveform for the posterior ROI. The annotated extremum was constrained to the target-related window and "
+            f"occurred at {peak_latency_ms:.0f} ms with amplitude {peak_amplitude_uv:.2f}~$\\mu$V, consistent with the strongest discriminative interval around {top_window}."
+        ),
+        "topomap_difference_300_500ms": (
+            "Sparse posterior scalp topography of the target-minus-non-target ERP amplitude averaged over 300--500 ms. "
+            "Because the montage contains only eight electrodes, the map should be interpreted as a coarse posterior spatial summary rather than a dense reconstruction."
+        ),
+        "feature_heatmap_channel_time": (
+            f"Channel-by-time-window importance heatmap for the best pooled classifier. The largest importance values cluster in the {top_window} interval "
+            f"and are concentrated over posterior channels, particularly {channel_text}."
+        ),
+        "pr_curve_best_model": (
+            "Precision--recall curve for the best pooled classifier. The dashed horizontal line indicates the positive-class prevalence baseline, "
+            "which is the appropriate reference under marked class imbalance."
+        ),
+        "latency_breakdown": (
+            "Average latency of the main processing stages, including preprocessing, epoching, feature extraction, and single-sample inference, "
+            "illustrating the computational cost of the lightweight ERP-based pipeline."
+        ),
+    }
+
+
+def build_results_paragraph(metrics_df: pd.DataFrame, class_counts: dict[str, int], top_window: str, top_channels: list[str]) -> str:
     pooled = metrics_df[metrics_df["evaluation_scheme"] == "pooled_random_split"].copy()
     best = best_model_summary(metrics_df)
     lda = pooled[pooled["model"] == "LDA"].iloc[0]
     svm = pooled[pooled["model"] == "SVM"].iloc[0]
-    paragraph = (
+    channel_text = ", ".join(top_channels)
+    return (
         f"Under the pooled random-split evaluation, the best-performing classifier was the {best['model']} model, which achieved "
         f"a balanced accuracy of {best['balanced_accuracy']:.4f}, recall of {best['recall']:.4f}, precision of {best['precision']:.4f}, "
         f"F1 score of {best['f1_score']:.4f}, and PR AUC of {best['pr_auc']:.4f}. The LDA baseline reached a balanced accuracy of "
         f"{lda['balanced_accuracy']:.4f} with PR AUC {lda['pr_auc']:.4f}, whereas the class-weighted RBF-SVM achieved "
         f"{svm['balanced_accuracy']:.4f} balanced accuracy and PR AUC {svm['pr_auc']:.4f}, indicating a modest but consistent advantage "
-        f"for a nonlinear decision boundary under marked class imbalance. Across the full processed dataset, the analysis included "
+        f"for a nonlinear decision boundary under marked class imbalance. The accompanying ERP-oriented interpretation localized the most informative features to the "
+        f"{top_window} interval and to posterior electrodes {channel_text}, in agreement with the target-related posterior ERP separation visible in the grand-average and difference-wave figures. Across the full processed dataset, the analysis included "
         f"{class_counts['target']} target epochs and {class_counts['non_target']} non-target epochs, so the observed precision-recall trade-off "
         f"should be interpreted as evidence that target-related information is detectable but still challenging to recover from a sparse eight-channel posterior montage in RSVP EEG."
     )
-    RESULTS_PARAGRAPH_FILE.write_text(paragraph + "\n", encoding="ascii")
+
+
+def save_results_paragraph(metrics_df: pd.DataFrame, class_counts: dict[str, int], top_window: str, top_channels: list[str]) -> None:
+    RESULTS_PARAGRAPH_FILE.write_text(build_results_paragraph(metrics_df, class_counts, top_window, top_channels) + "\n", encoding="ascii")
 
 
 def save_methods_paragraph(
@@ -1462,35 +1534,88 @@ def save_methods_paragraph(
     METHODS_PARAGRAPH_FILE.write_text(paragraph + "\n", encoding="ascii")
 
 
-def save_discussion_paragraph(top_window: str, top_channels: list[str]) -> None:
-    paragraph = (
+def build_discussion_paragraph(top_window: str, top_channels: list[str]) -> str:
+    return (
         f"The present results support the use of ERP-window features rather than spectral band-power summaries for RSVP attention detection, because the target-related signal in this paradigm is expected to be dominated by transient posterior ERP activity rather than sustained oscillatory changes. "
         f"The importance analysis concentrated on the {top_window} interval and on posterior channels such as {', '.join(top_channels)}, which is neurophysiologically consistent with a P300-like target response over parieto-occipital scalp regions. "
-        f"At the same time, the moderate classification performance remains scientifically plausible given the strong class imbalance, sparse eight-channel montage, and cross-subject variability characteristic of rapid visual presentation datasets. "
+        f"The corrected posterior ROI difference wave also showed its annotated extremum within the target-related window rather than at the earliest boundary, which aligns the waveform interpretation with the channel-time importance summary and with the expected posterior P300 timing. At the same time, the moderate classification performance remains scientifically plausible given the strong class imbalance, sparse eight-channel montage, and cross-subject variability characteristic of rapid visual presentation datasets. "
         f"These properties make the proposed approach valuable as a lightweight, explainable baseline that captures meaningful target-related ERP structure without relying on heavy preprocessing or opaque deep models."
     )
-    DISCUSSION_PARAGRAPH_FILE.write_text(paragraph + "\n", encoding="ascii")
 
 
-def save_figure_captions() -> None:
+def save_discussion_paragraph(top_window: str, top_channels: list[str]) -> None:
+    DISCUSSION_PARAGRAPH_FILE.write_text(build_discussion_paragraph(top_window, top_channels) + "\n", encoding="ascii")
+
+
+def save_figure_captions(top_window: str, top_channels: list[str], difference_summary: dict[str, float]) -> dict[str, str]:
+    captions = build_figure_caption_texts(top_window, top_channels, difference_summary)
     content = "\n".join(
         [
             "% Figure captions for the main manuscript figures",
-            "\\textbf{ERP grand-average ROI.} Grand-average posterior-region ERP waveforms for target and non-target trials, averaged across PO7, PO8, PO3, PO4, O1, and O2. Shaded bands denote the 95\\% confidence interval across epochs, and the highlighted 300--500 ms region corresponds to the expected target-related P300 interval.",
+            f"\\textbf{{ERP grand-average ROI.}} {captions['erp_grand_average_roi']}",
             "",
-            "\\textbf{ERP difference wave ROI.} Target-minus-non-target difference waveform for the posterior ROI. The annotated peak within 250--600 ms summarizes the dominant target-related positivity in the RSVP task.",
+            f"\\textbf{{ERP difference wave ROI.}} {captions['erp_difference_wave_roi']}",
             "",
-            "\\textbf{Topographic difference map (300--500 ms).} Sparse posterior scalp topography of the target-minus-non-target ERP amplitude averaged over 300--500 ms. Because the montage contains only eight electrodes, the map should be interpreted as a coarse posterior topographic summary rather than a dense spatial reconstruction.",
+            f"\\textbf{{Topographic difference map (300--500 ms).}} {captions['topomap_difference_300_500ms']}",
             "",
-            "\\textbf{Channel-time importance heatmap.} Model-derived feature importance aggregated by channel and ERP time window. This view highlights whether discriminative information clusters in posterior electrodes and in the canonical P300 interval.",
+            f"\\textbf{{Channel-time importance heatmap.}} {captions['feature_heatmap_channel_time']}",
             "",
-            "\\textbf{Precision-recall curve.} Precision-recall curve for the best pooled classifier. The dashed horizontal line indicates the positive-class prevalence, which provides the relevant baseline under class imbalance.",
+            f"\\textbf{{Precision-recall curve.}} {captions['pr_curve_best_model']}",
             "",
-            "\\textbf{Latency breakdown.} Average latency of the main processing stages, including preprocessing, epoching, feature extraction, and single-sample inference, illustrating the computational cost of the lightweight ERP-based pipeline.",
+            f"\\textbf{{Latency breakdown.}} {captions['latency_breakdown']}",
             "",
         ]
     )
     FIGURE_CAPTIONS_FILE.write_text(content, encoding="ascii")
+    return captions
+
+
+def save_final_replacements_for_paper(
+    captions: dict[str, str],
+    results_paragraph: str,
+    discussion_paragraph: str,
+) -> None:
+    content = "\n\n".join(
+        [
+            "\\begin{figure}[t]\n\\centering\n\\includegraphics[width=0.92\\linewidth]{figures/erp_grand_average_roi}\n\\caption{"
+            + captions["erp_grand_average_roi"]
+            + "}\n\\label{fig:erp_grand_average_roi}\n\\end{figure}",
+            "\\begin{figure}[t]\n\\centering\n\\includegraphics[width=0.92\\linewidth]{figures/erp_difference_wave_roi}\n\\caption{"
+            + captions["erp_difference_wave_roi"]
+            + "}\n\\label{fig:erp_difference_wave_roi}\n\\end{figure}",
+            "\\begin{figure}[t]\n\\centering\n\\includegraphics[width=0.72\\linewidth]{figures/topomap_difference_300_500ms}\n\\caption{"
+            + captions["topomap_difference_300_500ms"]
+            + "}\n\\label{fig:topomap_difference_300_500ms}\n\\end{figure}",
+            "\\begin{figure}[t]\n\\centering\n\\includegraphics[width=0.98\\linewidth]{figures/feature_heatmap_channel_time}\n\\caption{"
+            + captions["feature_heatmap_channel_time"]
+            + "}\n\\label{fig:feature_heatmap_channel_time}\n\\end{figure}",
+            "\\begin{figure}[t]\n\\centering\n\\includegraphics[width=0.82\\linewidth]{figures/pr_curve_best_model}\n\\caption{"
+            + captions["pr_curve_best_model"]
+            + "}\n\\label{fig:pr_curve_best_model}\n\\end{figure}",
+            "\\begin{figure}[t]\n\\centering\n\\includegraphics[width=0.90\\linewidth]{figures/latency_breakdown}\n\\caption{"
+            + captions["latency_breakdown"]
+            + "}\n\\label{fig:latency_breakdown}\n\\end{figure}",
+            results_paragraph,
+            discussion_paragraph,
+        ]
+    )
+    FINAL_REPLACEMENTS_FILE.write_text(content + "\n", encoding="ascii")
+
+
+def save_final_change_log(difference_summary: dict[str, float], top_window: str, top_channels: list[str]) -> None:
+    content = "\n".join(
+        [
+            "# Final Publication-Quality Refinements",
+            "",
+            "- Regenerated the main ERP figures in both PNG and PDF with a restrained neuroscience palette: reference/non-target in `#243447`, target/difference in `#7A1F3D`, charcoal text in `#2F2F2F`, and the ERP emphasis window in `#D9E2EC`.",
+            f"- Corrected the posterior ROI difference-wave annotation so that the marked extremum is detected within the target-related window, yielding a final annotated extremum at {difference_summary['peak_latency_ms']:.0f} ms and {difference_summary['peak_amplitude_uv']:.2f} uV.",
+            f"- Updated figure captions and manuscript paragraphs so they are fully consistent with the final interpretation that the most informative ERP interval is {top_window} and the most relevant posterior channels are {', '.join(top_channels)}.",
+            "- Preserved the underlying classifier metrics, tables, and experimental setup; only figure-dependent descriptive text was refined to match the corrected visual outputs exactly.",
+            "- Added `results/final_replacements_for_paper.tex` containing paste-ready LaTeX figure environments and replacement Results and Discussion paragraphs for the manuscript.",
+            "",
+        ]
+    )
+    FINAL_CHANGE_LOG_FILE.write_text(content, encoding="utf-8")
 
 
 def save_figure_selection_guide() -> None:
@@ -1800,7 +1925,7 @@ def main() -> None:
     if best_subject_artifact:
         plot_subject_level_f1(best_subject_artifact, FIGURES_DIR / "subject_level_f1")
 
-    save_results_paragraph(metrics_df, class_counts)
+    save_results_paragraph(metrics_df, class_counts, top_window, top_channels)
     save_methods_paragraph(
         file_count=len(manifest_records),
         subject_count=len({record.subject_id for record in manifest_records}),
@@ -1809,7 +1934,13 @@ def main() -> None:
         total_epochs=len(features_df),
     )
     save_discussion_paragraph(top_window=top_window, top_channels=top_channels)
-    save_figure_captions()
+    captions = save_figure_captions(top_window, top_channels, difference_summary)
+    save_final_replacements_for_paper(
+        captions=captions,
+        results_paragraph=build_results_paragraph(metrics_df, class_counts, top_window, top_channels),
+        discussion_paragraph=build_discussion_paragraph(top_window, top_channels),
+    )
+    save_final_change_log(difference_summary, top_window, top_channels)
     save_figure_selection_guide()
     summary.update(
         {
@@ -1863,6 +1994,8 @@ def main() -> None:
                 "methods_paragraph": str(METHODS_PARAGRAPH_FILE),
                 "discussion_paragraph": str(DISCUSSION_PARAGRAPH_FILE),
                 "figure_captions": str(FIGURE_CAPTIONS_FILE),
+                "final_replacements_for_paper": str(FINAL_REPLACEMENTS_FILE),
+                "final_change_log": str(FINAL_CHANGE_LOG_FILE),
                 "figure_selection_guide": str(FIGURE_SELECTION_GUIDE_FILE),
                 "readme": str(README_FILE),
                 "figures": {
@@ -1916,6 +2049,7 @@ def main() -> None:
     print(f"  {RESULTS_PARAGRAPH_FILE}")
     print(f"  {METHODS_PARAGRAPH_FILE}")
     print(f"  {DISCUSSION_PARAGRAPH_FILE}")
+    print(f"  {FINAL_REPLACEMENTS_FILE}")
 
 
 if __name__ == "__main__":

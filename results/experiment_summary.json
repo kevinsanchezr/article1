@@ -464,9 +464,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 1513.591611001175,
-      "epoching_ms": 128.8270509994618,
-      "feature_extraction_ms": 3.935970000384259,
+      "preprocess_ms": 1061.8500820000918,
+      "epoching_ms": 220.39293600028032,
+      "feature_extraction_ms": 8.268786001281114,
       "total_raw_events": 246,
       "usable_epochs": 246,
       "dropped_invalid_epochs": 0,
@@ -528,9 +528,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 474.4624639988615,
-      "epoching_ms": 53.99359300099604,
-      "feature_extraction_ms": 3.8980669996817596,
+      "preprocess_ms": 409.82977299972845,
+      "epoching_ms": 47.13038699992467,
+      "feature_extraction_ms": 2.9091929991409415,
       "total_raw_events": 235,
       "usable_epochs": 235,
       "dropped_invalid_epochs": 0,
@@ -590,9 +590,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 528.324918999715,
-      "epoching_ms": 73.81612899916945,
-      "feature_extraction_ms": 5.950927999947453,
+      "preprocess_ms": 512.8782949996094,
+      "epoching_ms": 78.57375599996885,
+      "feature_extraction_ms": 4.010329999800888,
       "total_raw_events": 270,
       "usable_epochs": 270,
       "dropped_invalid_epochs": 0,
@@ -656,9 +656,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 507.1752320000087,
-      "epoching_ms": 179.01532699943346,
-      "feature_extraction_ms": 4.776002000653534,
+      "preprocess_ms": 346.7071239992947,
+      "epoching_ms": 154.67395100131398,
+      "feature_extraction_ms": 4.0887180002755485,
       "total_raw_events": 261,
       "usable_epochs": 261,
       "dropped_invalid_epochs": 0,
@@ -721,9 +721,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 473.42565299913986,
-      "epoching_ms": 70.3158659998735,
-      "feature_extraction_ms": 4.956333999871276,
+      "preprocess_ms": 306.2889560005715,
+      "epoching_ms": 52.99680499956594,
+      "feature_extraction_ms": 3.6109520005993545,
       "total_raw_events": 228,
       "usable_epochs": 228,
       "dropped_invalid_epochs": 0,
@@ -783,9 +783,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 392.80720700116944,
-      "epoching_ms": 64.72052600111056,
-      "feature_extraction_ms": 3.8403830003517214,
+      "preprocess_ms": 320.9399650004343,
+      "epoching_ms": 57.650800999908824,
+      "feature_extraction_ms": 3.2212530004471773,
       "total_raw_events": 236,
       "usable_epochs": 236,
       "dropped_invalid_epochs": 0,
@@ -845,9 +845,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 506.44454499888525,
-      "epoching_ms": 78.62130899957265,
-      "feature_extraction_ms": 7.453090000126394,
+      "preprocess_ms": 319.95774200004234,
+      "epoching_ms": 47.03126099957444,
+      "feature_extraction_ms": 2.9057629999442725,
       "total_raw_events": 215,
       "usable_epochs": 215,
       "dropped_invalid_epochs": 0,
@@ -906,9 +906,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 711.9773989998066,
-      "epoching_ms": 86.46849700016901,
-      "feature_extraction_ms": 6.924096000147983,
+      "preprocess_ms": 358.1595670002571,
+      "epoching_ms": 45.23073200107319,
+      "feature_extraction_ms": 2.7571000009629643,
       "total_raw_events": 209,
       "usable_epochs": 209,
       "dropped_invalid_epochs": 0,
@@ -966,9 +966,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 562.6394189985149,
-      "epoching_ms": 141.620991000309,
-      "feature_extraction_ms": 11.012724999091006,
+      "preprocess_ms": 422.8566089986998,
+      "epoching_ms": 395.52903799994965,
+      "feature_extraction_ms": 5.856062000020756,
       "total_raw_events": 341,
       "usable_epochs": 341,
       "dropped_invalid_epochs": 0,
@@ -1039,9 +1039,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 462.20914100013033,
-      "epoching_ms": 75.14784900013183,
-      "feature_extraction_ms": 5.142854000951047,
+      "preprocess_ms": 382.2609650014783,
+      "epoching_ms": 55.17663099999481,
+      "feature_extraction_ms": 3.8983600006758934,
       "total_raw_events": 264,
       "usable_epochs": 264,
       "dropped_invalid_epochs": 0,
@@ -1104,9 +1104,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 518.1933440017019,
-      "epoching_ms": 62.741997999182786,
-      "feature_extraction_ms": 2.7754139991884585,
+      "preprocess_ms": 315.05663499956427,
+      "epoching_ms": 58.43891599943163,
+      "feature_extraction_ms": 2.688922999368515,
       "total_raw_events": 230,
       "usable_epochs": 180,
       "dropped_invalid_epochs": 50,
@@ -1166,9 +1166,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 439.4808130000456,
-      "epoching_ms": 81.79341499999282,
-      "feature_extraction_ms": 7.911627000794397,
+      "preprocess_ms": 301.673698999366,
+      "epoching_ms": 51.46899999999732,
+      "feature_extraction_ms": 3.0399679999391083,
       "total_raw_events": 222,
       "usable_epochs": 191,
       "dropped_invalid_epochs": 31,
@@ -1227,9 +1227,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 610.40453699934,
-      "epoching_ms": 218.3330610005214,
-      "feature_extraction_ms": 8.800286001132918,
+      "preprocess_ms": 350.7057540009555,
+      "epoching_ms": 73.3384710001701,
+      "feature_extraction_ms": 3.8094949995866045,
       "total_raw_events": 269,
       "usable_epochs": 269,
       "dropped_invalid_epochs": 0,
@@ -1292,9 +1292,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 437.01928600057727,
-      "epoching_ms": 63.440515999900526,
-      "feature_extraction_ms": 3.6039280003024032,
+      "preprocess_ms": 320.9259360010037,
+      "epoching_ms": 56.90079499981948,
+      "feature_extraction_ms": 3.4342070011916803,
       "total_raw_events": 232,
       "usable_epochs": 232,
       "dropped_invalid_epochs": 0,
@@ -1354,9 +1354,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 492.8153339988057,
-      "epoching_ms": 73.96037099897512,
-      "feature_extraction_ms": 7.183989000623114,
+      "preprocess_ms": 354.85999299999094,
+      "epoching_ms": 62.32320400158642,
+      "feature_extraction_ms": 4.115683999771136,
       "total_raw_events": 269,
       "usable_epochs": 269,
       "dropped_invalid_epochs": 0,
@@ -1419,9 +1419,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 780.6877189996158,
-      "epoching_ms": 105.12548400038213,
-      "feature_extraction_ms": 11.67031700060761,
+      "preprocess_ms": 342.4437619996752,
+      "epoching_ms": 60.140382000099635,
+      "feature_extraction_ms": 3.8823719987703953,
       "total_raw_events": 251,
       "usable_epochs": 251,
       "dropped_invalid_epochs": 0,
@@ -1483,9 +1483,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 361.78616500001226,
-      "epoching_ms": 50.681871000051615,
-      "feature_extraction_ms": 3.1111780008359347,
+      "preprocess_ms": 300.5153670001164,
+      "epoching_ms": 55.896858999403776,
+      "feature_extraction_ms": 3.768204000152764,
       "total_raw_events": 218,
       "usable_epochs": 218,
       "dropped_invalid_epochs": 0,
@@ -1544,9 +1544,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 689.3012519994954,
-      "epoching_ms": 209.71129600002314,
-      "feature_extraction_ms": 11.576156999581144,
+      "preprocess_ms": 496.1569890001556,
+      "epoching_ms": 100.604219998786,
+      "feature_extraction_ms": 5.096750001030159,
       "total_raw_events": 337,
       "usable_epochs": 337,
       "dropped_invalid_epochs": 0,
@@ -1617,9 +1617,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 522.5177100001019,
-      "epoching_ms": 73.42793300085759,
-      "feature_extraction_ms": 3.5898290007025935,
+      "preprocess_ms": 409.1577460003464,
+      "epoching_ms": 54.84105499999714,
+      "feature_extraction_ms": 3.4653450002224417,
       "total_raw_events": 228,
       "usable_epochs": 228,
       "dropped_invalid_epochs": 0,
@@ -1679,9 +1679,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 450.47152000006463,
-      "epoching_ms": 56.83212200165144,
-      "feature_extraction_ms": 3.6223179995431565,
+      "preprocess_ms": 324.3017990007502,
+      "epoching_ms": 48.19190800117212,
+      "feature_extraction_ms": 2.913479000199004,
       "total_raw_events": 221,
       "usable_epochs": 221,
       "dropped_invalid_epochs": 0,
@@ -1740,9 +1740,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 673.8983279992681,
-      "epoching_ms": 106.68216799967922,
-      "feature_extraction_ms": 7.159938999393489,
+      "preprocess_ms": 562.2543930003303,
+      "epoching_ms": 200.56827900043572,
+      "feature_extraction_ms": 12.016147000394994,
       "total_raw_events": 398,
       "usable_epochs": 398,
       "dropped_invalid_epochs": 0,
@@ -1818,9 +1818,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 547.3223270000744,
-      "epoching_ms": 111.03740699945774,
-      "feature_extraction_ms": 7.911001001048135,
+      "preprocess_ms": 834.3187299997226,
+      "epoching_ms": 308.33825999980036,
+      "feature_extraction_ms": 10.847290001038346,
       "total_raw_events": 377,
       "usable_epochs": 377,
       "dropped_invalid_epochs": 0,
@@ -1895,9 +1895,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 726.9239720008045,
-      "epoching_ms": 113.43899399980728,
-      "feature_extraction_ms": 9.983099000237416,
+      "preprocess_ms": 496.8649309994362,
+      "epoching_ms": 150.18417200008116,
+      "feature_extraction_ms": 12.767809001161368,
       "total_raw_events": 389,
       "usable_epochs": 389,
       "dropped_invalid_epochs": 0,
@@ -1972,9 +1972,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 831.540995000978,
-      "epoching_ms": 99.26101599921822,
-      "feature_extraction_ms": 7.313848000194412,
+      "preprocess_ms": 467.19567800028017,
+      "epoching_ms": 93.41698100070062,
+      "feature_extraction_ms": 5.931214000156615,
       "total_raw_events": 374,
       "usable_epochs": 374,
       "dropped_invalid_epochs": 0,
@@ -2049,9 +2049,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 648.6796410008537,
-      "epoching_ms": 229.4933819994185,
-      "feature_extraction_ms": 14.88890400105447,
+      "preprocess_ms": 740.6354069989902,
+      "epoching_ms": 307.0016609999584,
+      "feature_extraction_ms": 7.722882000962272,
       "total_raw_events": 433,
       "usable_epochs": 433,
       "dropped_invalid_epochs": 0,
@@ -2133,9 +2133,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 721.5270090000558,
-      "epoching_ms": 140.36987500003306,
-      "feature_extraction_ms": 15.133372999116546,
+      "preprocess_ms": 482.92783699980646,
+      "epoching_ms": 86.95196000007854,
+      "feature_extraction_ms": 5.838954999489943,
       "total_raw_events": 385,
       "usable_epochs": 385,
       "dropped_invalid_epochs": 0,
@@ -2212,9 +2212,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 850.6922199994733,
-      "epoching_ms": 208.8018819995341,
-      "feature_extraction_ms": 18.863346998841735,
+      "preprocess_ms": 467.18518199850223,
+      "epoching_ms": 88.49329599979683,
+      "feature_extraction_ms": 5.431084000520059,
       "total_raw_events": 398,
       "usable_epochs": 398,
       "dropped_invalid_epochs": 0,
@@ -2290,9 +2290,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 770.5151400004979,
-      "epoching_ms": 101.30306599967298,
-      "feature_extraction_ms": 6.66344800083607,
+      "preprocess_ms": 421.6612799991708,
+      "epoching_ms": 88.3759349999309,
+      "feature_extraction_ms": 6.477270999312168,
       "total_raw_events": 361,
       "usable_epochs": 361,
       "dropped_invalid_epochs": 0,
@@ -2366,9 +2366,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 619.2192750004324,
-      "epoching_ms": 188.77773200074444,
-      "feature_extraction_ms": 7.162690999393817,
+      "preprocess_ms": 1053.5686160001205,
+      "epoching_ms": 215.44763600104488,
+      "feature_extraction_ms": 12.423771999237943,
       "total_raw_events": 440,
       "usable_epochs": 440,
       "dropped_invalid_epochs": 0,
@@ -2450,9 +2450,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 647.8139410010044,
-      "epoching_ms": 120.59479099843884,
-      "feature_extraction_ms": 7.1292929987976095,
+      "preprocess_ms": 853.0301399987366,
+      "epoching_ms": 128.61890999920433,
+      "feature_extraction_ms": 7.804482000210555,
       "total_raw_events": 425,
       "usable_epochs": 425,
       "dropped_invalid_epochs": 0,
@@ -2532,9 +2532,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 599.5109900013631,
-      "epoching_ms": 144.96104899990314,
-      "feature_extraction_ms": 6.857041000330355,
+      "preprocess_ms": 480.48493300120754,
+      "epoching_ms": 98.8609460000589,
+      "feature_extraction_ms": 5.389705000197864,
       "total_raw_events": 399,
       "usable_epochs": 371,
       "dropped_invalid_epochs": 28,
@@ -2610,9 +2610,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 762.7623730004416,
-      "epoching_ms": 94.79682900018815,
-      "feature_extraction_ms": 4.243555998982629,
+      "preprocess_ms": 655.1972559991555,
+      "epoching_ms": 82.45948800140468,
+      "feature_extraction_ms": 3.9082679995772196,
       "total_raw_events": 364,
       "usable_epochs": 252,
       "dropped_invalid_epochs": 112,
@@ -2686,9 +2686,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 499.8306879988377,
-      "epoching_ms": 99.99991499898897,
-      "feature_extraction_ms": 6.501031000880175,
+      "preprocess_ms": 427.19310199936444,
+      "epoching_ms": 86.61527099866362,
+      "feature_extraction_ms": 5.096114000480156,
       "total_raw_events": 368,
       "usable_epochs": 368,
       "dropped_invalid_epochs": 0,
@@ -2762,9 +2762,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 521.1920849997114,
-      "epoching_ms": 261.86274599967874,
-      "feature_extraction_ms": 11.456574999101576,
+      "preprocess_ms": 429.47097000069334,
+      "epoching_ms": 171.09825700026704,
+      "feature_extraction_ms": 6.361129000651999,
       "total_raw_events": 361,
       "usable_epochs": 361,
       "dropped_invalid_epochs": 0,
@@ -2838,9 +2838,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 1008.5870169987174,
-      "epoching_ms": 235.75017300026957,
-      "feature_extraction_ms": 16.253158000836265,
+      "preprocess_ms": 524.7890280006686,
+      "epoching_ms": 103.17842200129235,
+      "feature_extraction_ms": 6.854784998722607,
       "total_raw_events": 487,
       "usable_epochs": 487,
       "dropped_invalid_epochs": 0,
@@ -2926,9 +2926,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 760.6114139998681,
-      "epoching_ms": 118.79166800099483,
-      "feature_extraction_ms": 8.864511000865605,
+      "preprocess_ms": 452.7526950005267,
+      "epoching_ms": 103.31144900010258,
+      "feature_extraction_ms": 5.936679999649641,
       "total_raw_events": 399,
       "usable_epochs": 399,
       "dropped_invalid_epochs": 0,
@@ -3006,9 +3006,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 1188.2942400006868,
-      "epoching_ms": 190.31997700039938,
-      "feature_extraction_ms": 14.701536998472875,
+      "preprocess_ms": 534.0082490001805,
+      "epoching_ms": 198.79290900098567,
+      "feature_extraction_ms": 12.610705000042799,
       "total_raw_events": 463,
       "usable_epochs": 463,
       "dropped_invalid_epochs": 0,
@@ -3092,9 +3092,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 718.2850159988448,
-      "epoching_ms": 127.49888100006501,
-      "feature_extraction_ms": 10.650026000803337,
+      "preprocess_ms": 647.3508369999763,
+      "epoching_ms": 77.86224499977834,
+      "feature_extraction_ms": 5.338456001481973,
       "total_raw_events": 356,
       "usable_epochs": 356,
       "dropped_invalid_epochs": 0,
@@ -3167,9 +3167,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 1040.1617259994964,
-      "epoching_ms": 294.6043970005121,
-      "feature_extraction_ms": 19.94493100028194,
+      "preprocess_ms": 547.8704699999071,
+      "epoching_ms": 154.61731299910753,
+      "feature_extraction_ms": 6.945233999431366,
       "total_raw_events": 565,
       "usable_epochs": 565,
       "dropped_invalid_epochs": 0,
@@ -3262,9 +3262,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 501.8519390014262,
-      "epoching_ms": 82.94426000065869,
-      "feature_extraction_ms": 5.165054999451968,
+      "preprocess_ms": 397.23458000116807,
+      "epoching_ms": 172.35922100007883,
+      "feature_extraction_ms": 9.830774999500136,
       "total_raw_events": 366,
       "usable_epochs": 366,
       "dropped_invalid_epochs": 0,
@@ -3338,9 +3338,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 497.36321800082806,
-      "epoching_ms": 105.22586200022488,
-      "feature_extraction_ms": 6.455899001593934,
+      "preprocess_ms": 603.2804870010295,
+      "epoching_ms": 145.6575169995631,
+      "feature_extraction_ms": 6.9277359998523025,
       "total_raw_events": 443,
       "usable_epochs": 443,
       "dropped_invalid_epochs": 0,
@@ -3422,9 +3422,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 724.8177109995595,
-      "epoching_ms": 170.85769400000572,
-      "feature_extraction_ms": 9.00288599950727,
+      "preprocess_ms": 709.9131249997299,
+      "epoching_ms": 97.99957299946982,
+      "feature_extraction_ms": 6.8230289998609805,
       "total_raw_events": 438,
       "usable_epochs": 438,
       "dropped_invalid_epochs": 0,
@@ -3505,9 +3505,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 661.2085810011195,
-      "epoching_ms": 176.4384140005859,
-      "feature_extraction_ms": 8.48937499904423,
+      "preprocess_ms": 612.9927940000925,
+      "epoching_ms": 68.36308800120605,
+      "feature_extraction_ms": 4.269162000127835,
       "total_raw_events": 315,
       "usable_epochs": 315,
       "dropped_invalid_epochs": 0,
@@ -3576,9 +3576,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 617.7814149996266,
-      "epoching_ms": 77.02834399970016,
-      "feature_extraction_ms": 5.310129001372843,
+      "preprocess_ms": 395.71222699851205,
+      "epoching_ms": 148.60516099906818,
+      "feature_extraction_ms": 9.303017999627627,
       "total_raw_events": 328,
       "usable_epochs": 328,
       "dropped_invalid_epochs": 0,
@@ -3649,9 +3649,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 499.049770000056,
-      "epoching_ms": 136.77791800000705,
-      "feature_extraction_ms": 5.34830699871236,
+      "preprocess_ms": 834.6502929998678,
+      "epoching_ms": 73.8234079999529,
+      "feature_extraction_ms": 4.420605000632349,
       "total_raw_events": 341,
       "usable_epochs": 341,
       "dropped_invalid_epochs": 0,
@@ -3722,9 +3722,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 1004.279172000679,
-      "epoching_ms": 96.96113700010756,
-      "feature_extraction_ms": 6.617580000238377,
+      "preprocess_ms": 799.872965000759,
+      "epoching_ms": 165.72538299988082,
+      "feature_extraction_ms": 14.019829999597277,
       "total_raw_events": 417,
       "usable_epochs": 417,
       "dropped_invalid_epochs": 0,
@@ -3804,9 +3804,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 851.857760000712,
-      "epoching_ms": 96.26690500044788,
-      "feature_extraction_ms": 6.589930000700406,
+      "preprocess_ms": 499.72660200000973,
+      "epoching_ms": 90.23510000042734,
+      "feature_extraction_ms": 6.05480699960026,
       "total_raw_events": 426,
       "usable_epochs": 426,
       "dropped_invalid_epochs": 0,
@@ -3887,9 +3887,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 437.2910090005462,
-      "epoching_ms": 168.60961800011864,
-      "feature_extraction_ms": 11.288100000456325,
+      "preprocess_ms": 521.5209870002582,
+      "epoching_ms": 71.53580099839019,
+      "feature_extraction_ms": 5.051455000284477,
       "total_raw_events": 320,
       "usable_epochs": 320,
       "dropped_invalid_epochs": 0,
@@ -3959,9 +3959,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 616.6138970002066,
-      "epoching_ms": 86.65730800021265,
-      "feature_extraction_ms": 5.232200001046294,
+      "preprocess_ms": 398.1813219998003,
+      "epoching_ms": 77.58416999968176,
+      "feature_extraction_ms": 4.767762999108527,
       "total_raw_events": 331,
       "usable_epochs": 331,
       "dropped_invalid_epochs": 0,
@@ -4031,9 +4031,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 530.3539240012469,
-      "epoching_ms": 76.82827900134725,
-      "feature_extraction_ms": 4.547791999357287,
+      "preprocess_ms": 448.1860919986502,
+      "epoching_ms": 153.4664740011067,
+      "feature_extraction_ms": 9.529303999443073,
       "total_raw_events": 337,
       "usable_epochs": 337,
       "dropped_invalid_epochs": 0,
@@ -4104,9 +4104,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 365.54369000077713,
-      "epoching_ms": 63.7427520014171,
-      "feature_extraction_ms": 4.0731590015639085,
+      "preprocess_ms": 393.9581829999952,
+      "epoching_ms": 63.51196299874573,
+      "feature_extraction_ms": 4.255047000697232,
       "total_raw_events": 309,
       "usable_epochs": 290,
       "dropped_invalid_epochs": 19,
@@ -4175,9 +4175,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 359.63732699929096,
-      "epoching_ms": 113.05252000056498,
-      "feature_extraction_ms": 7.229593000374734,
+      "preprocess_ms": 370.2680019996478,
+      "epoching_ms": 64.41567699948791,
+      "feature_extraction_ms": 4.470579000553698,
       "total_raw_events": 300,
       "usable_epochs": 260,
       "dropped_invalid_epochs": 40,
@@ -4244,9 +4244,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 402.0675129995652,
-      "epoching_ms": 65.7584170003247,
-      "feature_extraction_ms": 4.180334999546176,
+      "preprocess_ms": 392.65444099874003,
+      "epoching_ms": 68.35511899953417,
+      "feature_extraction_ms": 4.956341999786673,
       "total_raw_events": 319,
       "usable_epochs": 319,
       "dropped_invalid_epochs": 0,
@@ -4315,9 +4315,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 609.9620699988009,
-      "epoching_ms": 65.83142199997383,
-      "feature_extraction_ms": 4.906744001345942,
+      "preprocess_ms": 399.8689309992187,
+      "epoching_ms": 68.07613999990281,
+      "feature_extraction_ms": 4.378428999189055,
       "total_raw_events": 318,
       "usable_epochs": 318,
       "dropped_invalid_epochs": 0,
@@ -4387,9 +4387,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 531.0181610002473,
-      "epoching_ms": 69.72951700117846,
-      "feature_extraction_ms": 4.718496998975752,
+      "preprocess_ms": 398.5629870003322,
+      "epoching_ms": 71.89452599959623,
+      "feature_extraction_ms": 4.440013000930776,
       "total_raw_events": 326,
       "usable_epochs": 326,
       "dropped_invalid_epochs": 0,
@@ -4458,9 +4458,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 448.1031779996556,
-      "epoching_ms": 70.53635400006897,
-      "feature_extraction_ms": 5.443923000711948,
+      "preprocess_ms": 383.7427990001743,
+      "epoching_ms": 67.09127899921441,
+      "feature_extraction_ms": 4.2772910001076525,
       "total_raw_events": 318,
       "usable_epochs": 318,
       "dropped_invalid_epochs": 0,
@@ -4530,9 +4530,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 532.0184359989071,
-      "epoching_ms": 182.3770049995801,
-      "feature_extraction_ms": 14.015238999490975,
+      "preprocess_ms": 357.30470399903425,
+      "epoching_ms": 59.19768999956432,
+      "feature_extraction_ms": 4.218772999593057,
       "total_raw_events": 299,
       "usable_epochs": 299,
       "dropped_invalid_epochs": 0,
@@ -4599,9 +4599,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 607.9579459983506,
-      "epoching_ms": 72.16448600047443,
-      "feature_extraction_ms": 12.642011000934872,
+      "preprocess_ms": 361.6325240000151,
+      "epoching_ms": 64.95751799957361,
+      "feature_extraction_ms": 4.800942000656505,
       "total_raw_events": 304,
       "usable_epochs": 304,
       "dropped_invalid_epochs": 0,
@@ -4669,9 +4669,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 606.7117539987521,
-      "epoching_ms": 80.89320500039321,
-      "feature_extraction_ms": 5.072406000181218,
+      "preprocess_ms": 390.6599490001099,
+      "epoching_ms": 71.74515399856318,
+      "feature_extraction_ms": 5.5651830007263925,
       "total_raw_events": 322,
       "usable_epochs": 322,
       "dropped_invalid_epochs": 0,
@@ -4740,9 +4740,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 387.8119040000456,
-      "epoching_ms": 64.8323919995164,
-      "feature_extraction_ms": 5.107580000185408,
+      "preprocess_ms": 373.46242500098015,
+      "epoching_ms": 69.24682300086715,
+      "feature_extraction_ms": 4.504284999711672,
       "total_raw_events": 318,
       "usable_epochs": 318,
       "dropped_invalid_epochs": 0,
@@ -4812,9 +4812,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 672.3441760004789,
-      "epoching_ms": 102.41699399921345,
-      "feature_extraction_ms": 7.681798000703566,
+      "preprocess_ms": 628.5388889991737,
+      "epoching_ms": 219.61517300042033,
+      "feature_extraction_ms": 15.278401999239577,
       "total_raw_events": 499,
       "usable_epochs": 499,
       "dropped_invalid_epochs": 0,
@@ -4902,9 +4902,9 @@
         "O2"
       ],
       "missing_channels": [],
-      "preprocess_ms": 453.6582709988579,
-      "epoching_ms": 81.38438399873849,
-      "feature_extraction_ms": 5.764800998804276,
+      "preprocess_ms": 726.2663660003454,
+      "epoching_ms": 169.7017770002276,
+      "feature_extraction_ms": 11.413850999815622,
       "total_raw_events": 396,
       "usable_epochs": 396,
       "dropped_invalid_epochs": 0,
@@ -5079,23 +5079,23 @@
   "latency_metrics": [
     {
       "component": "Preprocessing",
-      "time_ms": 620.8452659516
+      "time_ms": 490.8786800967
     },
     {
       "component": "Epoching",
-      "time_ms": 116.8428441936
+      "time_ms": 110.3852940806
     },
     {
       "component": "Feature Extraction",
-      "time_ms": 7.7145183872
+      "time_ms": 6.0806378549
     },
     {
       "component": "LDA Inference",
-      "time_ms": 0.448508585
+      "time_ms": 0.345232655
     },
     {
       "component": "SVM Inference",
-      "time_ms": 1.81136812
+      "time_ms": 1.323020815
     }
   ],
   "best_model": {
@@ -5199,83 +5199,83 @@
       "top_features": [
         {
           "feature": "PO4_300_400ms",
-          "importance": 0.24183491714099423
-        },
-        {
-          "feature": "PO4_500_600ms",
-          "importance": 0.20314772474999745
+          "importance": 0.15879796665549595
         },
         {
           "feature": "O1_400_500ms",
-          "importance": 0.14061830509760107
+          "importance": 0.14928789745555468
+        },
+        {
+          "feature": "PO4_500_600ms",
+          "importance": 0.13226156082378582
         },
         {
           "feature": "PO8_400_500ms",
-          "importance": 0.12798341581696557
+          "importance": 0.11372550261978973
         },
         {
           "feature": "O2_300_400ms",
-          "importance": 0.10732595903490724
-        },
-        {
-          "feature": "PO8_200_300ms",
-          "importance": 0.08459343455577636
+          "importance": 0.08444649267030813
         },
         {
           "feature": "PO7_300_400ms",
-          "importance": 0.07371892260241344
-        },
-        {
-          "feature": "O1_0_100ms",
-          "importance": 0.07105829320574669
-        },
-        {
-          "feature": "O2_200_300ms",
-          "importance": 0.070325209969537
-        },
-        {
-          "feature": "O2_0_100ms",
-          "importance": 0.06955353468423262
-        },
-        {
-          "feature": "PO7_400_500ms",
-          "importance": 0.06749033855499245
-        },
-        {
-          "feature": "O2_400_500ms",
-          "importance": 0.05795706752722585
-        },
-        {
-          "feature": "O2_500_600ms",
-          "importance": 0.048845117882941984
-        },
-        {
-          "feature": "PO3_500_600ms",
-          "importance": 0.045387623417128556
-        },
-        {
-          "feature": "PO3_400_500ms",
-          "importance": 0.045323091174947726
+          "importance": 0.07891186474919787
         },
         {
           "feature": "PO3_100_200ms",
-          "importance": 0.044553932180418206
+          "importance": 0.07686393957030056
         },
         {
-          "feature": "P8_100_200ms",
-          "importance": 0.043871009969388614
+          "feature": "PO3_400_500ms",
+          "importance": 0.07588741286322871
         },
         {
-          "feature": "O1_100_200ms",
-          "importance": 0.041810571872988665
+          "feature": "P7_500_600ms",
+          "importance": 0.05937967970858064
+        },
+        {
+          "feature": "PO7_100_200ms",
+          "importance": 0.058729196475124645
+        },
+        {
+          "feature": "O2_200_300ms",
+          "importance": 0.0535189010263297
+        },
+        {
+          "feature": "P7_200_300ms",
+          "importance": 0.0448938874061916
         },
         {
           "feature": "PO3_0_100ms",
-          "importance": 0.04039621193958356
+          "importance": 0.04295270100006859
         },
         {
-          "feature": "O1_200_300ms",
-          "importance": 0.03936042682559484
+          "feature": "O1_100_200ms",
+          "importance": 0.042355428955763115
+        },
+        {
+          "feature": "P8_400_500ms",
+          "importance": 0.041383275733297864
+        },
+        {
+          "feature": "PO8_200_300ms",
+          "importance": 0.041055770820925555
+        },
+        {
+          "feature": "O2_500_600ms",
+          "importance": 0.040701138654771665
+        },
+        {
+          "feature": "PO8_300_400ms",
+          "importance": 0.04004339366172
+        },
+        {
+          "feature": "O2_400_500ms",
+          "importance": 0.03807855445106201
+        },
+        {
+          "feature": "PO4_200_300ms",
+          "importance": 0.037599409839861875
         }
       ],
       "background_samples": 10,
@@ -5291,8 +5291,10 @@
     ]
   },
   "erp_difference_wave": {
-    "peak_latency_ms": 250.0,
-    "peak_amplitude_uv": 0.19252784085787178
+    "peak_latency_ms": 400.390625,
+    "peak_amplitude_uv": -2.301934002935236,
+    "peak_window_start_ms": 400.0,
+    "peak_window_end_ms": 500.0
   },
   "feature_type": "erp_window_mean_amplitude",
   "erp_windows_ms": [
@@ -5361,6 +5363,8 @@
     "methods_paragraph": "/home/kevin/Projects/python/article1/results/methods_paragraph.tex",
     "discussion_paragraph": "/home/kevin/Projects/python/article1/results/discussion_paragraph.tex",
     "figure_captions": "/home/kevin/Projects/python/article1/results/figure_captions.tex",
+    "final_replacements_for_paper": "/home/kevin/Projects/python/article1/results/final_replacements_for_paper.tex",
+    "final_change_log": "/home/kevin/Projects/python/article1/results/final_change_log.md",
     "figure_selection_guide": "/home/kevin/Projects/python/article1/results/figure_selection_guide.md",
     "readme": "/home/kevin/Projects/python/article1/README_results.md",
     "figures": {

@@ -130,11 +130,11 @@ Use `results/figure_selection_guide.md` for a claim-by-claim explanation of what
 ### Latency
 | component | time_ms |
 | --- | --- |
-| Preprocessing | 620.8453 |
-| Epoching | 116.8428 |
-| Feature Extraction | 7.7145 |
-| LDA Inference | 0.4485 |
-| SVM Inference | 1.8114 |
+| Preprocessing | 490.8787 |
+| Epoching | 110.3853 |
+| Feature Extraction | 6.0806 |
+| LDA Inference | 0.3452 |
+| SVM Inference | 1.3230 |
 
 ## Output File Index
 - `results/experiment_summary.json`: manifest, processing logs, annotation mapping, metrics, figure inventory, and interpretability highlights.
