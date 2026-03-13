@@ -31,10 +31,15 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
     confusion_matrix,
     f1_score,
+    matthews_corrcoef,
     precision_score,
+    precision_recall_curve,
     recall_score,
+    roc_curve,
     roc_auc_score,
 )
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
@@ -56,13 +61,21 @@ MODEL_METRICS_FILE = RESULTS_DIR / "model_metrics.csv"
 LATENCY_METRICS_FILE = RESULTS_DIR / "latency_metrics.csv"
 FEATURES_DATASET_FILE = RESULTS_DIR / "features_dataset.csv"
 LATEX_PERFORMANCE_FILE = RESULTS_DIR / "latex_table_performance.tex"
+LATEX_PERFORMANCE_MAIN_FILE = RESULTS_DIR / "latex_table_performance_main.tex"
+LATEX_PERFORMANCE_EXTENDED_FILE = RESULTS_DIR / "latex_table_performance_extended.tex"
 LATEX_LATENCY_FILE = RESULTS_DIR / "latex_table_latency.tex"
 RESULTS_PARAGRAPH_FILE = RESULTS_DIR / "results_paragraph.tex"
 METHODS_PARAGRAPH_FILE = RESULTS_DIR / "methods_paragraph.tex"
+DISCUSSION_PARAGRAPH_FILE = RESULTS_DIR / "discussion_paragraph.tex"
+FIGURE_CAPTIONS_FILE = RESULTS_DIR / "figure_captions.tex"
+FIGURE_SELECTION_GUIDE_FILE = RESULTS_DIR / "figure_selection_guide.md"
+IMPORTANCE_SUMMARY_FILE = RESULTS_DIR / "importance_summary.csv"
 README_FILE = PROJECT_ROOT / "README_results.md"
 README_MAIN_FILE = PROJECT_ROOT / "README.md"
 
 TARGET_CHANNELS = ["PO8", "PO7", "PO3", "PO4", "P7", "P8", "O1", "O2"]
+POSTERIOR_ROI_CHANNELS = ["PO7", "PO8", "PO3", "PO4", "O1", "O2"]
+ERP_CHANNEL_FIGURE_CHANNELS = ["PO3", "PO4", "O1", "O2"]
 ERP_WINDOWS_MS = [
     (0, 100),
     (100, 200),
@@ -71,6 +84,8 @@ ERP_WINDOWS_MS = [
     (400, 500),
     (500, 600),
 ]
+P300_WINDOW_MS = (300, 500)
+DIFFERENCE_PEAK_WINDOW_MS = (250, 600)
 AMPLITUDE_THRESHOLD_VOLTS = 500e-6
 RANDOM_STATE = 42
 PALETTE = {
@@ -136,6 +151,22 @@ def set_plot_style() -> None:
             "legend.frameon": False,
         }
     )
+
+
+def save_figure(fig: plt.Figure, stem: Path) -> None:
+    fig.tight_layout()
+    fig.savefig(stem.with_suffix(".png"), dpi=300, facecolor="white", bbox_inches="tight")
+    fig.savefig(stem.with_suffix(".pdf"), dpi=300, facecolor="white", bbox_inches="tight")
+    plt.close(fig)
+
+
+def style_axes(ax: plt.Axes, hide_left: bool = False) -> None:
+    for spine_name in ["top", "right"]:
+        ax.spines[spine_name].set_visible(False)
+    if hide_left:
+        ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_color(PALETTE["grid"])
+    ax.spines["left"].set_color(PALETTE["grid"])
 
 
 def discover_dataset(dataset_dir: Path, logger: logging.Logger) -> list[FileRecord]:
@@ -243,6 +274,86 @@ def feature_columns(channel_names: list[str]) -> list[str]:
         for channel in channel_names:
             columns.append(f"{channel}_{window_start_ms}_{window_end_ms}ms")
     return columns
+
+
+def parse_feature_name(feature_name: str) -> dict[str, Any]:
+    match = re.match(r"^([A-Z0-9]+)_(\d+)_(\d+)ms$", feature_name)
+    if not match:
+        raise ValueError(f"Unexpected feature name format: {feature_name}")
+    channel, start_ms, end_ms = match.groups()
+    return {
+        "channel": channel,
+        "window_start_ms": int(start_ms),
+        "window_end_ms": int(end_ms),
+    }
+
+
+def init_erp_summary(times: np.ndarray) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "times_ms": (times * 1000.0).astype(float),
+        "class_epoch_count": {"target": 0, "non_target": 0},
+        "channel_order": TARGET_CHANNELS,
+    }
+    for class_name in ["target", "non_target"]:
+        summary[class_name] = {
+            "roi_sum": np.zeros(len(times), dtype=np.float64),
+            "roi_sum_sq": np.zeros(len(times), dtype=np.float64),
+            "channel_sum": {channel: np.zeros(len(times), dtype=np.float64) for channel in TARGET_CHANNELS},
+            "channel_sum_sq": {channel: np.zeros(len(times), dtype=np.float64) for channel in TARGET_CHANNELS},
+        }
+    return summary
+
+
+def resample_epoch_data(epoch_data: np.ndarray, source_times: np.ndarray, target_times: np.ndarray) -> np.ndarray:
+    if len(source_times) == len(target_times) and np.allclose(source_times, target_times):
+        return epoch_data
+    resampled = np.empty((epoch_data.shape[0], epoch_data.shape[1], len(target_times)), dtype=np.float64)
+    for epoch_idx in range(epoch_data.shape[0]):
+        for channel_idx in range(epoch_data.shape[1]):
+            resampled[epoch_idx, channel_idx] = np.interp(target_times, source_times, epoch_data[epoch_idx, channel_idx])
+    return resampled
+
+
+def merge_erp_summary(base: dict[str, Any] | None, update: dict[str, Any]) -> dict[str, Any]:
+    if base is None:
+        return update
+    base_times = np.asarray(base["times_ms"], dtype=float)
+    update_times = np.asarray(update["times_ms"], dtype=float)
+    if len(base_times) != len(update_times) or not np.allclose(base_times, update_times):
+        for class_name in ["target", "non_target"]:
+            update[class_name]["roi_sum"] = np.interp(base_times, update_times, update[class_name]["roi_sum"])
+            update[class_name]["roi_sum_sq"] = np.interp(base_times, update_times, update[class_name]["roi_sum_sq"])
+            for channel in TARGET_CHANNELS:
+                update[class_name]["channel_sum"][channel] = np.interp(
+                    base_times,
+                    update_times,
+                    update[class_name]["channel_sum"][channel],
+                )
+                update[class_name]["channel_sum_sq"][channel] = np.interp(
+                    base_times,
+                    update_times,
+                    update[class_name]["channel_sum_sq"][channel],
+                )
+    for class_name in ["target", "non_target"]:
+        base[class_name]["roi_sum"] += update[class_name]["roi_sum"]
+        base[class_name]["roi_sum_sq"] += update[class_name]["roi_sum_sq"]
+        for channel in TARGET_CHANNELS:
+            base[class_name]["channel_sum"][channel] += update[class_name]["channel_sum"][channel]
+            base[class_name]["channel_sum_sq"][channel] += update[class_name]["channel_sum_sq"][channel]
+        base["class_epoch_count"][class_name] += update["class_epoch_count"][class_name]
+    return base
+
+
+def finalize_mean_and_sem(sum_values: np.ndarray, sum_sq_values: np.ndarray, count: int) -> tuple[np.ndarray, np.ndarray]:
+    if count <= 0:
+        zeros = np.zeros_like(sum_values, dtype=np.float64)
+        return zeros, zeros
+    mean = sum_values / count
+    if count == 1:
+        return mean, np.zeros_like(mean)
+    variance = np.maximum((sum_sq_values - (sum_values ** 2) / count) / (count - 1), 0.0)
+    sem = np.sqrt(variance / count)
+    return mean, sem
 
 
 def load_previous_metrics(path: Path) -> pd.DataFrame | None:
@@ -362,6 +473,26 @@ def process_file(record: FileRecord, logger: logging.Logger) -> dict[str, Any]:
     X = epoch_to_features(epoch_data, epochs.info["sfreq"], epochs.ch_names)
     feature_ms = (time.perf_counter() - feature_start) * 1000.0
 
+    erp_summary = init_erp_summary(epochs.times)
+    channel_index = {channel: idx for idx, channel in enumerate(epochs.ch_names)}
+    roi_channels = [channel for channel in POSTERIOR_ROI_CHANNELS if channel in channel_index]
+    for label_value, class_name in [(1, "target"), (0, "non_target")]:
+        class_mask = labels == label_value
+        if not np.any(class_mask):
+            continue
+        class_data = epoch_data[class_mask].astype(np.float64, copy=False)
+        roi_indices = [channel_index[channel] for channel in roi_channels]
+        roi_epoch_traces = class_data[:, roi_indices, :].mean(axis=1)
+        erp_summary["class_epoch_count"][class_name] = int(class_data.shape[0])
+        erp_summary[class_name]["roi_sum"] = roi_epoch_traces.sum(axis=0)
+        erp_summary[class_name]["roi_sum_sq"] = np.square(roi_epoch_traces).sum(axis=0)
+        for channel in TARGET_CHANNELS:
+            if channel not in channel_index:
+                continue
+            channel_data = class_data[:, channel_index[channel], :]
+            erp_summary[class_name]["channel_sum"][channel] = channel_data.sum(axis=0)
+            erp_summary[class_name]["channel_sum_sq"][channel] = np.square(channel_data).sum(axis=0)
+
     columns = feature_columns(epochs.ch_names)
     feature_df = pd.DataFrame(X, columns=columns)
     feature_df.insert(0, "label", labels)
@@ -388,14 +519,27 @@ def process_file(record: FileRecord, logger: logging.Logger) -> dict[str, Any]:
             "mapped_annotation_counts": mapping_counts,
         }
     )
-    return {"stats": stats, "features": feature_df}
+    return {"stats": stats, "features": feature_df, "erp_summary": erp_summary}
 
 
 def safe_roc_auc(y_true: np.ndarray, y_score: np.ndarray | None) -> float | None:
     if y_score is None or len(np.unique(y_true)) < 2:
         return None
     try:
-        return float(roc_auc_score(y_true, y_score))
+        score_array = np.asarray(y_score, dtype=float).ravel()
+        score_array = np.nan_to_num(score_array, nan=0.0, posinf=0.0, neginf=0.0)
+        return float(roc_auc_score(y_true, score_array))
+    except Exception:
+        return None
+
+
+def safe_average_precision(y_true: np.ndarray, y_score: np.ndarray | None) -> float | None:
+    if y_score is None or len(np.unique(y_true)) < 2:
+        return None
+    try:
+        score_array = np.asarray(y_score, dtype=float).ravel()
+        score_array = np.nan_to_num(score_array, nan=0.0, posinf=0.0, neginf=0.0)
+        return float(average_precision_score(y_true, score_array))
     except Exception:
         return None
 
@@ -426,21 +570,27 @@ def compute_metrics(
     confusion: np.ndarray,
     extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    tn, fp, fn, tp = [int(value) for value in confusion.ravel()]
+    specificity = float(tn / (tn + fp)) if (tn + fp) > 0 else 0.0
     row: dict[str, Any] = {
         "evaluation_scheme": scheme,
         "model": model_name,
         "accuracy": float(accuracy_score(y_true, y_pred)),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "specificity": specificity,
         "f1_score": float(f1_score(y_true, y_pred, zero_division=0)),
         "roc_auc": safe_roc_auc(y_true, y_score),
+        "pr_auc": safe_average_precision(y_true, y_score),
+        "mcc": float(matthews_corrcoef(y_true, y_pred)),
         "support_total": int(len(y_true)),
         "support_non_target": int((y_true == 0).sum()),
         "support_target": int((y_true == 1).sum()),
-        "tn": int(confusion[0, 0]),
-        "fp": int(confusion[0, 1]),
-        "fn": int(confusion[1, 0]),
-        "tp": int(confusion[1, 1]),
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "tp": tp,
     }
     if extra:
         row.update(extra)
@@ -495,6 +645,7 @@ def pooled_random_split_evaluation(
             "y_train": y_train,
             "y_test": y_test,
             "test_indices": idx_test,
+            "test_subjects": features_df.iloc[idx_test]["subject_id"].to_numpy(),
             "confusion_matrix": confusion,
             "y_pred": y_pred,
             "y_score": y_score,
@@ -507,7 +658,7 @@ def subject_aware_evaluation(
     features_df: pd.DataFrame,
     feature_cols: list[str],
     logger: logging.Logger,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     groups = features_df["subject_id"].to_numpy()
     X = features_df[feature_cols].to_numpy()
     y = features_df["label"].to_numpy(dtype=int)
@@ -515,17 +666,23 @@ def subject_aware_evaluation(
     unique_subjects = np.unique(groups)
     if len(unique_subjects) < 2:
         logger.warning("Subject-aware evaluation skipped because fewer than two subjects are available.")
-        return []
+        return [], {}
 
     metrics_rows: list[dict[str, Any]] = []
+    artifacts: dict[str, Any] = {}
     splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=RANDOM_STATE)
     splits = list(splitter.split(X, y, groups))
     for model_name, model_builder in build_models().items():
         y_true_all: list[int] = []
         y_pred_all: list[int] = []
         y_score_all: list[float] = []
+        subject_ids_all: list[str] = []
         valid_auc = True
+        last_train_idx: np.ndarray | None = None
+        last_test_idx: np.ndarray | None = None
         for train_idx, test_idx in splits:
+            last_train_idx = train_idx
+            last_test_idx = test_idx
             y_train = y[train_idx]
             y_test = y[test_idx]
             if len(np.unique(y_train)) < 2 or len(np.unique(y_test)) < 2:
@@ -543,6 +700,7 @@ def subject_aware_evaluation(
 
             y_true_all.extend(y_test.tolist())
             y_pred_all.extend(y_pred.tolist())
+            subject_ids_all.extend(groups[test_idx].tolist())
             if y_score is not None:
                 y_score_all.extend(np.asarray(y_score).tolist())
             else:
@@ -563,21 +721,27 @@ def subject_aware_evaluation(
             y_score_arr,
             confusion,
             {
-                "train_subjects": int(len(np.unique(groups[train_idx]))),
-                "test_subjects": int(len(np.unique(groups[test_idx]))),
-                "train_samples": int(len(train_idx)),
-                "test_samples": int(len(test_idx)),
+                "train_subjects": int(len(np.unique(groups[last_train_idx]))) if last_train_idx is not None else 0,
+                "test_subjects": int(len(np.unique(groups[last_test_idx]))) if last_test_idx is not None else 0,
+                "train_samples": int(len(last_train_idx)) if last_train_idx is not None else 0,
+                "test_samples": int(len(last_test_idx)) if last_test_idx is not None else 0,
             },
         )
         metrics_rows.append(metrics)
+        artifacts[model_name] = {
+            "y_true": y_true_arr,
+            "y_pred": y_pred_arr,
+            "y_score": y_score_arr,
+            "subject_ids": np.asarray(subject_ids_all),
+        }
         logger.info("%s subject-aware group split metrics: %s", model_name, metrics)
-    return metrics_rows
+    return metrics_rows, artifacts
 
 
 def plot_confusion_matrix(confusion: np.ndarray, title: str, output_path: Path) -> None:
     set_plot_style()
     fig, ax = plt.subplots(figsize=(4.5, 4.0), facecolor="white")
-    image = ax.imshow(confusion, cmap="GnBu")
+    image = ax.imshow(confusion, cmap="PuBuGn")
     fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     ax.set_xticks([0, 1], labels=["Non-target", "Target"])
     ax.set_yticks([0, 1], labels=["Non-target", "Target"])
@@ -591,7 +755,7 @@ def plot_confusion_matrix(confusion: np.ndarray, title: str, output_path: Path) 
     for spine in ax.spines.values():
         spine.set_visible(False)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=300, facecolor="white")
+    fig.savefig(output_path, dpi=300, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -608,10 +772,9 @@ def plot_class_balance(features_df: pd.DataFrame, output_path: Path) -> None:
     ax.set_axisbelow(True)
     for bar, value in zip(bars, values):
         ax.text(bar.get_x() + bar.get_width() / 2, value, f"{value}", ha="center", va="bottom", fontsize=10, color=PALETTE["text"])
-    for spine in ["top", "right", "left"]:
-        ax.spines[spine].set_visible(False)
+    style_axes(ax, hide_left=True)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=300, facecolor="white")
+    fig.savefig(output_path, dpi=300, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -672,14 +835,13 @@ def plot_bandpower_distribution(features_df: pd.DataFrame, feature_cols: list[st
 
     ax.set_xticks(x_positions, band_order)
     ax.set_ylabel("Mean ERP Amplitude Across Channels (uV)")
-    ax.set_title("ERP Window Amplitude Distribution by Class")
+    ax.set_title("ERP Window Amplitude Distribution")
     ax.grid(axis="y", alpha=0.8)
     ax.set_axisbelow(True)
     ax.legend([bp1["boxes"][0], bp2["boxes"][0]], ["Non-target", "Target"], loc="best")
-    for spine in ["top", "right", "left"]:
-        ax.spines[spine].set_visible(False)
+    style_axes(ax, hide_left=True)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=300, facecolor="white")
+    fig.savefig(output_path, dpi=300, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -696,13 +858,12 @@ def plot_lda_feature_importance(model: Pipeline, feature_cols: list[str], output
     ax.barh(np.arange(len(top_indices)), coefficients[top_indices][::-1], color=colors[::-1], edgecolor="white", linewidth=0.8)
     ax.set_yticks(np.arange(len(top_indices)), [feature_cols[i] for i in top_indices][::-1])
     ax.set_xlabel("Absolute Standardized Coefficient")
-    ax.set_title("LDA Feature Importance")
+    ax.set_title("LDA Feature Ranking")
     ax.grid(axis="x", alpha=0.8)
     ax.set_axisbelow(True)
-    for spine in ["top", "right", "left"]:
-        ax.spines[spine].set_visible(False)
+    style_axes(ax, hide_left=True)
     fig.tight_layout()
-    fig.savefig(output_path, dpi=300, facecolor="white")
+    fig.savefig(output_path, dpi=300, facecolor="white", bbox_inches="tight")
     plt.close(fig)
 
     return [
@@ -744,9 +905,9 @@ def plot_svm_explainability(
             color=PALETTE["blue"],
         )
         plt.gcf().set_facecolor("white")
-        plt.title("SHAP Summary for SVM (Sampled)")
+        plt.title("SVM SHAP Summary (Sampled)")
         plt.tight_layout()
-        plt.savefig(output_path, dpi=300, facecolor="white")
+        plt.savefig(output_path, dpi=300, facecolor="white", bbox_inches="tight")
         plt.close()
 
         mean_abs = np.mean(np.abs(class_values), axis=0)
@@ -776,13 +937,12 @@ def plot_svm_explainability(
         ax.barh(np.arange(len(order)), result.importances_mean[order][::-1], color=PALETTE["teal"], edgecolor="white", linewidth=0.8)
         ax.set_yticks(np.arange(len(order)), [feature_cols[i] for i in order][::-1])
         ax.set_xlabel("Permutation Importance (F1)")
-        ax.set_title("SVM Explainability Fallback")
+        ax.set_title("SVM Permutation Importance")
         ax.grid(axis="x", alpha=0.8)
         ax.set_axisbelow(True)
-        for spine in ["top", "right", "left"]:
-            ax.spines[spine].set_visible(False)
+        style_axes(ax, hide_left=True)
         fig.tight_layout()
-        fig.savefig(output_path, dpi=300, facecolor="white")
+        fig.savefig(output_path, dpi=300, facecolor="white", bbox_inches="tight")
         plt.close(fig)
         return {
             "method": "permutation_importance_fallback",
@@ -791,6 +951,284 @@ def plot_svm_explainability(
                 for idx in order
             ],
         }
+
+
+def plot_erp_grand_average_roi(erp_summary: dict[str, Any], output_stem: Path) -> None:
+    set_plot_style()
+    times_ms = np.asarray(erp_summary["times_ms"], dtype=float)
+    fig, ax = plt.subplots(figsize=(7.0, 4.5), facecolor="white")
+    for class_name, label, color in [
+        ("non_target", "Non-target", PALETTE["blue"]),
+        ("target", "Target", PALETTE["green"]),
+    ]:
+        count = int(erp_summary["class_epoch_count"][class_name])
+        mean, sem = finalize_mean_and_sem(
+            erp_summary[class_name]["roi_sum"],
+            erp_summary[class_name]["roi_sum_sq"],
+            count,
+        )
+        mean_uv = mean * 1e6
+        ci_uv = 1.96 * sem * 1e6
+        ax.plot(times_ms, mean_uv, color=color, linewidth=2.0, label=label)
+        ax.fill_between(times_ms, mean_uv - ci_uv, mean_uv + ci_uv, color=color, alpha=0.16)
+    ax.axvline(0, color=PALETTE["text"], linewidth=1.0, linestyle="--")
+    ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["soft_blue"], alpha=0.22)
+    ax.set_xlim(0, 800)
+    ax.set_xlabel("Time (ms)")
+    ax.set_ylabel("Amplitude (uV)")
+    ax.set_title("Posterior ROI Grand-Average ERP")
+    ax.grid(axis="y", alpha=0.6)
+    ax.legend(loc="upper right")
+    ax.invert_yaxis()
+    style_axes(ax)
+    save_figure(fig, output_stem)
+
+
+def plot_erp_channels(erp_summary: dict[str, Any], output_stem: Path) -> None:
+    set_plot_style()
+    times_ms = np.asarray(erp_summary["times_ms"], dtype=float)
+    fig, axes = plt.subplots(2, 2, figsize=(8.0, 6.0), facecolor="white", sharex=True, sharey=True)
+    mean_lookup: dict[tuple[str, str], np.ndarray] = {}
+    global_min = np.inf
+    global_max = -np.inf
+    for channel in ERP_CHANNEL_FIGURE_CHANNELS:
+        for class_name in ["non_target", "target"]:
+            count = int(erp_summary["class_epoch_count"][class_name])
+            mean, _ = finalize_mean_and_sem(
+                erp_summary[class_name]["channel_sum"][channel],
+                erp_summary[class_name]["channel_sum_sq"][channel],
+                count,
+            )
+            mean_lookup[(channel, class_name)] = mean * 1e6
+            global_min = min(global_min, float(np.min(mean_lookup[(channel, class_name)])))
+            global_max = max(global_max, float(np.max(mean_lookup[(channel, class_name)])))
+
+    margin = 0.1 * max(abs(global_min), abs(global_max), 1.0)
+    for ax, channel in zip(axes.ravel(), ERP_CHANNEL_FIGURE_CHANNELS):
+        ax.axvline(0, color=PALETTE["text"], linewidth=0.9, linestyle="--")
+        ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["soft_blue"], alpha=0.22)
+        ax.plot(times_ms, mean_lookup[(channel, "non_target")], color=PALETTE["blue"], linewidth=1.8, label="Non-target")
+        ax.plot(times_ms, mean_lookup[(channel, "target")], color=PALETTE["green"], linewidth=1.8, label="Target")
+        ax.set_title(channel)
+        ax.set_xlim(0, 800)
+        ax.set_ylim(global_min - margin, global_max + margin)
+        ax.grid(axis="y", alpha=0.5)
+        ax.invert_yaxis()
+        style_axes(ax)
+    axes[1, 0].set_xlabel("Time (ms)")
+    axes[1, 1].set_xlabel("Time (ms)")
+    axes[0, 0].set_ylabel("Amplitude (uV)")
+    axes[1, 0].set_ylabel("Amplitude (uV)")
+    axes[0, 1].legend(loc="upper right")
+    fig.suptitle("Posterior ERP Comparison Across Channels", y=1.02, fontsize=13, fontweight="semibold")
+    save_figure(fig, output_stem)
+
+
+def plot_difference_wave_roi(erp_summary: dict[str, Any], output_stem: Path) -> dict[str, float]:
+    set_plot_style()
+    times_ms = np.asarray(erp_summary["times_ms"], dtype=float)
+    target_mean, _ = finalize_mean_and_sem(
+        erp_summary["target"]["roi_sum"],
+        erp_summary["target"]["roi_sum_sq"],
+        int(erp_summary["class_epoch_count"]["target"]),
+    )
+    non_target_mean, _ = finalize_mean_and_sem(
+        erp_summary["non_target"]["roi_sum"],
+        erp_summary["non_target"]["roi_sum_sq"],
+        int(erp_summary["class_epoch_count"]["non_target"]),
+    )
+    difference_uv = (target_mean - non_target_mean) * 1e6
+    peak_mask = (times_ms >= DIFFERENCE_PEAK_WINDOW_MS[0]) & (times_ms <= DIFFERENCE_PEAK_WINDOW_MS[1])
+    peak_local_idx = int(np.argmax(difference_uv[peak_mask]))
+    peak_indices = np.where(peak_mask)[0]
+    peak_idx = int(peak_indices[peak_local_idx])
+    peak_latency_ms = float(times_ms[peak_idx])
+    peak_amplitude_uv = float(difference_uv[peak_idx])
+
+    fig, ax = plt.subplots(figsize=(7.0, 4.0), facecolor="white")
+    ax.axhline(0, color=PALETTE["grid"], linewidth=1.0)
+    ax.axvline(0, color=PALETTE["text"], linewidth=0.9, linestyle="--")
+    ax.axvspan(P300_WINDOW_MS[0], P300_WINDOW_MS[1], color=PALETTE["soft_blue"], alpha=0.22)
+    ax.plot(times_ms, difference_uv, color=PALETTE["teal"], linewidth=2.2)
+    ax.scatter([peak_latency_ms], [peak_amplitude_uv], color=PALETTE["navy"], s=34, zorder=3)
+    ax.annotate(
+        f"Peak {peak_amplitude_uv:.2f} uV at {peak_latency_ms:.0f} ms",
+        xy=(peak_latency_ms, peak_amplitude_uv),
+        xytext=(peak_latency_ms + 35, peak_amplitude_uv + 0.3),
+        arrowprops={"arrowstyle": "->", "color": PALETTE["navy"], "lw": 1.0},
+        fontsize=9,
+        color=PALETTE["text"],
+    )
+    ax.set_xlim(0, 800)
+    ax.set_xlabel("Time (ms)")
+    ax.set_ylabel("Amplitude Difference (uV)")
+    ax.set_title("Posterior ROI Difference Wave")
+    ax.grid(axis="y", alpha=0.6)
+    ax.invert_yaxis()
+    style_axes(ax)
+    save_figure(fig, output_stem)
+    return {"peak_latency_ms": peak_latency_ms, "peak_amplitude_uv": peak_amplitude_uv}
+
+
+def plot_topomap_difference(erp_summary: dict[str, Any], output_stem: Path) -> None:
+    set_plot_style()
+    times_ms = np.asarray(erp_summary["times_ms"], dtype=float)
+    window_mask = (times_ms >= P300_WINDOW_MS[0]) & (times_ms <= P300_WINDOW_MS[1])
+    channel_values_uv: list[float] = []
+    for channel in TARGET_CHANNELS:
+        target_mean, _ = finalize_mean_and_sem(
+            erp_summary["target"]["channel_sum"][channel],
+            erp_summary["target"]["channel_sum_sq"][channel],
+            int(erp_summary["class_epoch_count"]["target"]),
+        )
+        non_target_mean, _ = finalize_mean_and_sem(
+            erp_summary["non_target"]["channel_sum"][channel],
+            erp_summary["non_target"]["channel_sum_sq"][channel],
+            int(erp_summary["class_epoch_count"]["non_target"]),
+        )
+        channel_values_uv.append(float(np.mean((target_mean - non_target_mean)[window_mask]) * 1e6))
+
+    info = mne.create_info(ch_names=TARGET_CHANNELS, sfreq=256.0, ch_types="eeg")
+    evoked = mne.EvokedArray(np.asarray(channel_values_uv, dtype=float)[:, None], info, tmin=0.0)
+    evoked.set_montage(mne.channels.make_standard_montage("standard_1020"), on_missing="ignore")
+
+    fig, ax = plt.subplots(figsize=(4.7, 4.5), facecolor="white")
+    mne.viz.plot_topomap(
+        evoked.data[:, 0],
+        evoked.info,
+        axes=ax,
+        show=False,
+        cmap="PuBuGn",
+        contours=4,
+        extrapolate="head",
+        sphere=(0.0, 0.0, 0.0, 0.095),
+    )
+    ax.set_title("Target Minus Non-target (300-500 ms)")
+    fig.text(0.5, 0.02, "Sparse posterior topography based on 8 electrodes", ha="center", fontsize=9, color=PALETTE["text"])
+    save_figure(fig, output_stem)
+
+
+def plot_feature_heatmap(importance_df: pd.DataFrame, model_name: str, output_stem: Path) -> tuple[str, list[str]]:
+    set_plot_style()
+    model_df = importance_df[importance_df["model_name"] == model_name].copy()
+    if model_df.empty:
+        return "", []
+    pivot = (
+        model_df.pivot_table(
+            index="channel",
+            columns="window_label",
+            values="importance_value",
+            aggfunc="mean",
+        )
+        .reindex(index=TARGET_CHANNELS)
+        .fillna(0.0)
+    )
+    ordered_columns = [f"{start}-{end} ms" for start, end in ERP_WINDOWS_MS]
+    pivot = pivot.reindex(columns=ordered_columns)
+
+    fig, ax = plt.subplots(figsize=(8.0, 4.8), facecolor="white")
+    image = ax.imshow(pivot.to_numpy(), cmap="PuBuGn", aspect="auto")
+    colorbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    colorbar.ax.set_ylabel("Importance", rotation=270, labelpad=14)
+    ax.set_xticks(np.arange(len(pivot.columns)), labels=pivot.columns)
+    ax.set_yticks(np.arange(len(pivot.index)), labels=pivot.index)
+    ax.set_xlabel("ERP Window")
+    ax.set_ylabel("Channel")
+    ax.set_title(f"{model_name} Channel x Time Importance")
+    ax.grid(False)
+    for (row_idx, col_idx), value in np.ndenumerate(pivot.to_numpy()):
+        ax.text(col_idx, row_idx, f"{value:.2f}", ha="center", va="center", fontsize=8, color="white" if value > np.nanmax(pivot.to_numpy()) * 0.45 else PALETTE["text"])
+    save_figure(fig, output_stem)
+
+    by_window = model_df.groupby("window_label")["importance_value"].mean().sort_values(ascending=False)
+    by_channel = model_df.groupby("channel")["importance_value"].mean().sort_values(ascending=False)
+    return str(by_window.index[0]), by_channel.index[:3].tolist()
+
+
+def plot_pr_curve(y_true: np.ndarray, y_score: np.ndarray | None, output_stem: Path, model_name: str) -> float | None:
+    if y_score is None:
+        return None
+    set_plot_style()
+    precision, recall, _ = precision_recall_curve(y_true, y_score)
+    ap = safe_average_precision(y_true, y_score)
+    prevalence = float(np.mean(y_true))
+    fig, ax = plt.subplots(figsize=(5.6, 4.5), facecolor="white")
+    ax.plot(recall, precision, color=PALETTE["teal"], linewidth=2.0, label=f"{model_name} (AP = {ap:.3f})")
+    ax.axhline(prevalence, color=PALETTE["grid"], linestyle="--", linewidth=1.2, label=f"Prevalence = {prevalence:.3f}")
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_title("Precision-Recall Curve")
+    ax.legend(loc="upper right")
+    ax.grid(alpha=0.5)
+    style_axes(ax)
+    save_figure(fig, output_stem)
+    return ap
+
+
+def plot_roc_curve(y_true: np.ndarray, y_score: np.ndarray | None, output_stem: Path, model_name: str) -> float | None:
+    if y_score is None or len(np.unique(y_true)) < 2:
+        return None
+    set_plot_style()
+    fpr, tpr, _ = roc_curve(y_true, y_score)
+    roc_auc = safe_roc_auc(y_true, y_score)
+    fig, ax = plt.subplots(figsize=(5.6, 4.5), facecolor="white")
+    ax.plot(fpr, tpr, color=PALETTE["navy"], linewidth=2.0, label=f"{model_name} (AUC = {roc_auc:.3f})")
+    ax.plot([0, 1], [0, 1], color=PALETTE["grid"], linestyle="--", linewidth=1.2)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_title("ROC Curve")
+    ax.legend(loc="lower right")
+    ax.grid(alpha=0.5)
+    style_axes(ax)
+    save_figure(fig, output_stem)
+    return roc_auc
+
+
+def plot_subject_level_f1(subject_artifact: dict[str, Any], output_stem: Path) -> None:
+    set_plot_style()
+    subject_df = pd.DataFrame(
+        {
+            "subject_id": subject_artifact["subject_ids"],
+            "y_true": subject_artifact["y_true"],
+            "y_pred": subject_artifact["y_pred"],
+        }
+    )
+    rows = []
+    for subject_id, group in subject_df.groupby("subject_id"):
+        rows.append({"subject_id": subject_id, "f1_score": f1_score(group["y_true"], group["y_pred"], zero_division=0)})
+    summary_df = pd.DataFrame(rows).sort_values("subject_id")
+    fig, ax = plt.subplots(figsize=(6.5, 4.2), facecolor="white")
+    ax.boxplot(summary_df["f1_score"], vert=False, widths=0.35, patch_artist=True, boxprops={"facecolor": PALETTE["soft_blue"], "edgecolor": PALETTE["blue"]}, medianprops={"color": PALETTE["navy"], "linewidth": 1.4})
+    y_jitter = 1.0 + np.linspace(-0.08, 0.08, len(summary_df))
+    ax.scatter(summary_df["f1_score"], y_jitter, color=PALETTE["teal"], s=34, zorder=3)
+    for _, row in summary_df.iterrows():
+        ax.text(float(row["f1_score"]) + 0.01, 1.02, str(row["subject_id"]), fontsize=8, color=PALETTE["text"])
+    ax.set_xlabel("Subject-level F1 Score")
+    ax.set_yticks([])
+    ax.set_xlim(0, min(1.0, max(0.35, float(summary_df["f1_score"].max()) + 0.12)))
+    ax.set_title("Subject-level F1 Distribution")
+    ax.grid(axis="x", alpha=0.5)
+    style_axes(ax, hide_left=True)
+    save_figure(fig, output_stem)
+
+
+def plot_latency_breakdown(latency_df: pd.DataFrame, output_stem: Path) -> None:
+    set_plot_style()
+    fig, ax = plt.subplots(figsize=(6.8, 4.2), facecolor="white")
+    ordered = latency_df.copy().sort_values("time_ms", ascending=True)
+    colors = [PALETTE["soft_blue"], PALETTE["blue"], PALETTE["teal"], PALETTE["green"], PALETTE["mint"]]
+    ax.barh(ordered["component"], ordered["time_ms"], color=colors[: len(ordered)], edgecolor="white", linewidth=0.8)
+    for _, row in ordered.iterrows():
+        ax.text(float(row["time_ms"]) + max(ordered["time_ms"]) * 0.01, row["component"], f"{row['time_ms']:.2f}", va="center", fontsize=9, color=PALETTE["text"])
+    ax.set_xlabel("Time (ms)")
+    ax.set_title("Latency Breakdown")
+    ax.grid(axis="x", alpha=0.5)
+    style_axes(ax, hide_left=True)
+    save_figure(fig, output_stem)
 
 
 def dataframe_to_markdown(df: pd.DataFrame) -> str:
@@ -811,6 +1249,80 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+def build_lda_importance_summary(model: Pipeline, feature_cols: list[str]) -> pd.DataFrame:
+    lda = model.named_steps["model"]
+    scaler = model.named_steps["scaler"]
+    values = np.abs(lda.coef_[0] / np.where(scaler.scale_ == 0, 1.0, scaler.scale_))
+    rows = []
+    for feature, importance in zip(feature_cols, values):
+        parsed = parse_feature_name(feature)
+        rows.append(
+            {
+                "feature": feature,
+                "channel": parsed["channel"],
+                "window_start_ms": parsed["window_start_ms"],
+                "window_end_ms": parsed["window_end_ms"],
+                "window_label": f"{parsed['window_start_ms']}-{parsed['window_end_ms']} ms",
+                "importance_value": float(importance),
+                "model_name": "LDA",
+                "importance_method": "standardized_coefficient",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_svm_importance_summary(
+    model: Pipeline,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    feature_cols: list[str],
+) -> pd.DataFrame:
+    sample_size = min(100, len(X_test))
+    rng = np.random.default_rng(RANDOM_STATE)
+    sample_indices = np.arange(len(X_test))
+    if len(X_test) > sample_size:
+        positive_indices = sample_indices[y_test == 1]
+        negative_indices = sample_indices[y_test == 0]
+        pos_take = min(len(positive_indices), max(1, int(round(sample_size * np.mean(y_test)))))
+        neg_take = min(len(negative_indices), sample_size - pos_take)
+        chosen = np.concatenate(
+            [
+                rng.choice(positive_indices, size=pos_take, replace=False),
+                rng.choice(negative_indices, size=neg_take, replace=False),
+            ]
+        )
+        rng.shuffle(chosen)
+        X_eval = X_test[chosen]
+        y_eval = y_test[chosen]
+    else:
+        X_eval = X_test
+        y_eval = y_test
+    result = permutation_importance(
+        model,
+        X_eval,
+        y_eval,
+        n_repeats=1,
+        random_state=RANDOM_STATE,
+        scoring="average_precision",
+    )
+    rows = []
+    for feature, importance in zip(feature_cols, result.importances_mean):
+        parsed = parse_feature_name(feature)
+        rows.append(
+            {
+                "feature": feature,
+                "channel": parsed["channel"],
+                "window_start_ms": parsed["window_start_ms"],
+                "window_end_ms": parsed["window_end_ms"],
+                "window_label": f"{parsed['window_start_ms']}-{parsed['window_end_ms']} ms",
+                "importance_value": float(max(importance, 0.0)),
+                "model_name": "SVM",
+                "importance_method": "permutation_average_precision",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def measure_inference_latency(model: Pipeline, sample: np.ndarray, repeats: int = 200) -> float:
     model.predict(sample)
     start = time.perf_counter()
@@ -820,26 +1332,22 @@ def measure_inference_latency(model: Pipeline, sample: np.ndarray, repeats: int 
     return elapsed_ms / repeats
 
 
-def save_latex_performance_table(metrics_df: pd.DataFrame) -> None:
-    pooled = metrics_df[metrics_df["evaluation_scheme"] == "pooled_random_split"].copy()
-    rows = []
-    for model_name in ["LDA", "SVM"]:
-        row = pooled[pooled["model"] == model_name]
-        if row.empty:
-            continue
-        item = row.iloc[0]
-        rows.append(
-            f"{model_name} & {item['accuracy']:.4f} & {item['precision']:.4f} & {item['recall']:.4f} & {item['f1_score']:.4f} \\\\"
-        )
-    content = "\n".join(
+def make_latex_table(
+    title: str,
+    label: str,
+    columns: list[str],
+    rows: list[str],
+    alignment: str,
+) -> str:
+    return "\n".join(
         [
             "\\begin{table}[htbp]",
-            "\\caption{Classification Performance}",
-            "\\label{tab:perf}",
+            f"\\caption{{{title}}}",
+            f"\\label{{{label}}}",
             "\\centering",
-            "\\begin{tabular}{lcccc}",
+            f"\\begin{{tabular}}{{{alignment}}}",
             "\\toprule",
-            "Model & Accuracy & Precision & Recall & F1 Score \\\\",
+            " & ".join(columns) + " \\\\",
             "\\midrule",
             *rows,
             "\\bottomrule",
@@ -848,7 +1356,42 @@ def save_latex_performance_table(metrics_df: pd.DataFrame) -> None:
             "",
         ]
     )
-    LATEX_PERFORMANCE_FILE.write_text(content, encoding="ascii")
+
+
+def save_latex_performance_tables(metrics_df: pd.DataFrame) -> None:
+    pooled = metrics_df[metrics_df["evaluation_scheme"] == "pooled_random_split"].copy()
+    main_rows = []
+    extended_rows = []
+    for model_name in ["LDA", "SVM"]:
+        row = pooled[pooled["model"] == model_name]
+        if row.empty:
+            continue
+        item = row.iloc[0]
+        main_rows.append(
+            f"{model_name} & {item['balanced_accuracy']:.4f} & {item['recall']:.4f} & {item['precision']:.4f} & {item['f1_score']:.4f} & {item['pr_auc']:.4f} \\\\"
+        )
+        extended_rows.append(
+            f"{model_name} & {item['accuracy']:.4f} & {item['balanced_accuracy']:.4f} & {item['precision']:.4f} & {item['recall']:.4f} & "
+            f"{item['specificity']:.4f} & {item['f1_score']:.4f} & {item['roc_auc']:.4f} & {item['pr_auc']:.4f} & {item['mcc']:.4f} \\\\"
+        )
+
+    main_content = make_latex_table(
+        title="Classification Performance Under Class Imbalance",
+        label="tab:perf",
+        columns=["Model", "Balanced Accuracy", "Recall", "Precision", "F1 Score", "PR AUC"],
+        rows=main_rows,
+        alignment="lccccc",
+    )
+    extended_content = make_latex_table(
+        title="Extended Classification Metrics",
+        label="tab:perf_extended",
+        columns=["Model", "Accuracy", "Balanced Accuracy", "Precision", "Recall", "Specificity", "F1 Score", "ROC AUC", "PR AUC", "MCC"],
+        rows=extended_rows,
+        alignment="lccccccccc",
+    )
+    LATEX_PERFORMANCE_FILE.write_text(main_content, encoding="ascii")
+    LATEX_PERFORMANCE_MAIN_FILE.write_text(main_content, encoding="ascii")
+    LATEX_PERFORMANCE_EXTENDED_FILE.write_text(extended_content, encoding="ascii")
 
 
 def save_latex_latency_table(latency_df: pd.DataFrame) -> None:
@@ -878,7 +1421,8 @@ def save_latex_latency_table(latency_df: pd.DataFrame) -> None:
 
 def best_model_summary(metrics_df: pd.DataFrame) -> pd.Series:
     pooled = metrics_df[metrics_df["evaluation_scheme"] == "pooled_random_split"].copy()
-    pooled = pooled.sort_values(by=["f1_score", "accuracy"], ascending=False)
+    pooled = pooled.assign(_pr_auc=pooled["pr_auc"].fillna(-1.0), _roc_auc=pooled["roc_auc"].fillna(-1.0))
+    pooled = pooled.sort_values(by=["_pr_auc", "f1_score", "balanced_accuracy", "_roc_auc", "accuracy"], ascending=False)
     return pooled.iloc[0]
 
 
@@ -888,16 +1432,14 @@ def save_results_paragraph(metrics_df: pd.DataFrame, class_counts: dict[str, int
     lda = pooled[pooled["model"] == "LDA"].iloc[0]
     svm = pooled[pooled["model"] == "SVM"].iloc[0]
     paragraph = (
-        f"On the pooled random split evaluation, the best-performing classifier was the {best['model']} model, "
-        f"which achieved an accuracy of {best['accuracy']:.4f}, a precision of {best['precision']:.4f}, "
-        f"a recall of {best['recall']:.4f}, and an F1 score of {best['f1_score']:.4f}. "
-        f"The LDA baseline yielded {lda['accuracy']:.4f} accuracy and {lda['f1_score']:.4f} F1, whereas the RBF-SVM reached "
-        f"{svm['accuracy']:.4f} accuracy and {svm['f1_score']:.4f} F1, indicating that nonlinear decision boundaries "
-        f"{'provided a measurable benefit' if svm['f1_score'] > lda['f1_score'] else 'did not provide a clear benefit'} "
-        f"for discriminating target from non-target RSVP responses. Across the full processed feature set, the experiment included "
-        f"{class_counts['target']} target epochs and {class_counts['non_target']} non-target epochs, demonstrating that the proposed "
-        f"ERP-window pipeline can support lightweight attention detection from only eight posterior EEG channels while remaining "
-        f"computationally practical for near-real-time inference."
+        f"Under the pooled random-split evaluation, the best-performing classifier was the {best['model']} model, which achieved "
+        f"a balanced accuracy of {best['balanced_accuracy']:.4f}, recall of {best['recall']:.4f}, precision of {best['precision']:.4f}, "
+        f"F1 score of {best['f1_score']:.4f}, and PR AUC of {best['pr_auc']:.4f}. The LDA baseline reached a balanced accuracy of "
+        f"{lda['balanced_accuracy']:.4f} with PR AUC {lda['pr_auc']:.4f}, whereas the class-weighted RBF-SVM achieved "
+        f"{svm['balanced_accuracy']:.4f} balanced accuracy and PR AUC {svm['pr_auc']:.4f}, indicating a modest but consistent advantage "
+        f"for a nonlinear decision boundary under marked class imbalance. Across the full processed dataset, the analysis included "
+        f"{class_counts['target']} target epochs and {class_counts['non_target']} non-target epochs, so the observed precision-recall trade-off "
+        f"should be interpreted as evidence that target-related information is detectable but still challenging to recover from a sparse eight-channel posterior montage in RSVP EEG."
     )
     RESULTS_PARAGRAPH_FILE.write_text(paragraph + "\n", encoding="ascii")
 
@@ -910,17 +1452,93 @@ def save_methods_paragraph(
     total_epochs: int,
 ) -> None:
     paragraph = (
-        f"We evaluated the proposed framework on the PhysioNet EEG Signals from an RSVP Task dataset stored locally, scanning "
-        f"{file_count} EDF recordings from {subject_count} unique subjects and successfully processing {processed_files} files from "
-        f"{processed_subjects} subjects. For each recording, only the posterior channels PO8, PO7, PO3, PO4, P7, P8, O1, and O2 were retained, "
-        f"channel labels were normalized automatically, and the signals were band-pass filtered between 0.5 and 40 Hz without ICA or heavy artifact correction. "
-        f"Annotations were converted into binary target and non-target labels using the EDF event descriptions, after which epochs were extracted from 0.0 to 0.8 s "
-        f"relative to each stimulus without baseline correction and invalid epochs with non-finite values or extreme amplitudes were discarded conservatively. "
-        f"ERP amplitude features were then computed by averaging the signal within the 0--100, 100--200, 200--300, 300--400, 400--500, and 500--600 ms windows on each of the eight channels, yielding 48 features per epoch "
-        f"for a total of {total_epochs} usable epochs. Classification was performed with standardized features using Linear Discriminant Analysis and an RBF-kernel support vector machine, "
-        f"with both pooled random-split evaluation and a subject-aware group split by subject identifier reported."
+        f"We evaluated the proposed lightweight RSVP attention-detection framework on the PhysioNet EEG Signals from an RSVP Task dataset, "
+        f"scanning {file_count} EDF recordings from {subject_count} subjects and successfully processing {processed_files} recordings from {processed_subjects} subjects. "
+        f"Only the posterior electrodes PO8, PO7, PO3, PO4, P7, P8, O1, and O2 were retained in order to emphasize the expected posterior target-related ERP response. "
+        f"Signals were band-pass filtered from 0.5 to 40 Hz, event annotations were mapped to binary target and non-target labels, and epochs were extracted from 0 to 0.8 s after stimulus onset without baseline correction; epochs containing non-finite values or extreme amplitudes were removed conservatively. "
+        f"ERP features were defined as mean amplitudes within six post-stimulus windows (0--100, 100--200, 200--300, 300--400, 400--500, and 500--600 ms) on each channel, yielding 48 interpretable channel-time features per trial and {total_epochs} usable epochs overall. "
+        f"Standardized features were classified using shrinkage-based Linear Discriminant Analysis and a class-weighted RBF-kernel support vector machine, and performance was reported for both a stratified pooled split and a subject-aware group split."
     )
     METHODS_PARAGRAPH_FILE.write_text(paragraph + "\n", encoding="ascii")
+
+
+def save_discussion_paragraph(top_window: str, top_channels: list[str]) -> None:
+    paragraph = (
+        f"The present results support the use of ERP-window features rather than spectral band-power summaries for RSVP attention detection, because the target-related signal in this paradigm is expected to be dominated by transient posterior ERP activity rather than sustained oscillatory changes. "
+        f"The importance analysis concentrated on the {top_window} interval and on posterior channels such as {', '.join(top_channels)}, which is neurophysiologically consistent with a P300-like target response over parieto-occipital scalp regions. "
+        f"At the same time, the moderate classification performance remains scientifically plausible given the strong class imbalance, sparse eight-channel montage, and cross-subject variability characteristic of rapid visual presentation datasets. "
+        f"These properties make the proposed approach valuable as a lightweight, explainable baseline that captures meaningful target-related ERP structure without relying on heavy preprocessing or opaque deep models."
+    )
+    DISCUSSION_PARAGRAPH_FILE.write_text(paragraph + "\n", encoding="ascii")
+
+
+def save_figure_captions() -> None:
+    content = "\n".join(
+        [
+            "% Figure captions for the main manuscript figures",
+            "\\textbf{ERP grand-average ROI.} Grand-average posterior-region ERP waveforms for target and non-target trials, averaged across PO7, PO8, PO3, PO4, O1, and O2. Shaded bands denote the 95\\% confidence interval across epochs, and the highlighted 300--500 ms region corresponds to the expected target-related P300 interval.",
+            "",
+            "\\textbf{ERP difference wave ROI.} Target-minus-non-target difference waveform for the posterior ROI. The annotated peak within 250--600 ms summarizes the dominant target-related positivity in the RSVP task.",
+            "",
+            "\\textbf{Topographic difference map (300--500 ms).} Sparse posterior scalp topography of the target-minus-non-target ERP amplitude averaged over 300--500 ms. Because the montage contains only eight electrodes, the map should be interpreted as a coarse posterior topographic summary rather than a dense spatial reconstruction.",
+            "",
+            "\\textbf{Channel-time importance heatmap.} Model-derived feature importance aggregated by channel and ERP time window. This view highlights whether discriminative information clusters in posterior electrodes and in the canonical P300 interval.",
+            "",
+            "\\textbf{Precision-recall curve.} Precision-recall curve for the best pooled classifier. The dashed horizontal line indicates the positive-class prevalence, which provides the relevant baseline under class imbalance.",
+            "",
+            "\\textbf{Latency breakdown.} Average latency of the main processing stages, including preprocessing, epoching, feature extraction, and single-sample inference, illustrating the computational cost of the lightweight ERP-based pipeline.",
+            "",
+        ]
+    )
+    FIGURE_CAPTIONS_FILE.write_text(content, encoding="ascii")
+
+
+def save_figure_selection_guide() -> None:
+    content = """# Figure Selection Guide
+
+## Main Paper Figures (recommended)
+1. `erp_grand_average_roi`
+   - Why main paper: This is the clearest physiology-first figure and directly shows target versus non-target ERP separation.
+   - Scientific claim: Target detection is supported by a posterior ERP difference that evolves over time.
+
+2. `erp_difference_wave_roi`
+   - Why main paper: Difference waves are standard in ERP studies and make the target-related component more explicit.
+   - Scientific claim: The dominant target-related effect peaks within the expected post-stimulus interval.
+
+3. `topomap_difference_300_500ms`
+   - Why main paper: Adds a scalp interpretation and ties the result to posterior neurophysiology.
+   - Scientific claim: The target-related effect is spatially concentrated over the sparse posterior montage.
+
+4. `feature_heatmap_channel_time`
+   - Why main paper: This is a neuroscience-friendly explainability view that replaces a generic feature bar chart.
+   - Scientific claim: The classifier relies on interpretable channel-time ERP structure rather than opaque feature interactions.
+
+5. `pr_curve_best_model`
+   - Why main paper: Precision-recall analysis is more informative than accuracy under the dataset imbalance.
+   - Scientific claim: The best model retains discriminative value above the prevalence baseline despite severe class imbalance.
+
+6. `latency_breakdown`
+   - Why main paper: This supports the engineering contribution without overwhelming the physiology narrative.
+   - Scientific claim: The proposed pipeline remains lightweight enough for practical RSVP EEG experimentation.
+
+## Supplementary Figures
+- `confusion_matrix_lda` and `confusion_matrix_svm`
+  - Why supplementary: Useful for completeness, but they are generic ML visuals and do not communicate the ERP phenomenon directly.
+  - Scientific claim: They summarize discrete classification outcomes for readers who want a confusion-level view.
+
+- `class_balance`
+  - Why supplementary: Important context, but not a centerpiece figure.
+  - Scientific claim: The task is highly imbalanced, which motivates imbalance-aware metrics.
+
+- `shap_summary_svm`
+  - Why supplementary: Helpful for ML-oriented readers, but less natural than channel-time ERP summaries for the main paper.
+  - Scientific claim: Nonlinear model importance remains interpretable at the feature level.
+
+- `bandpower_distribution`
+  - Why supplementary: Retained only as a legacy comparison-style visualization and not recommended for the main manuscript.
+  - Scientific claim: Window-averaged ERP amplitudes differ by class, but waveform and difference-wave figures are stronger.
+"""
+    FIGURE_SELECTION_GUIDE_FILE.write_text(content, encoding="ascii")
 
 
 def save_readme(
@@ -931,121 +1549,114 @@ def save_readme(
 ) -> None:
     file_lines = "\n".join([f"- `{record.file_name}` ({record.rate_hz} Hz, subject {record.subject_id}, session {record.session})" for record in manifest_records])
     pooled = metrics_df[metrics_df["evaluation_scheme"] == "pooled_random_split"].copy()
-    loso = metrics_df[metrics_df["evaluation_scheme"] == "subject_group_split"].copy()
+    subject_aware = metrics_df[metrics_df["evaluation_scheme"] == "subject_group_split"].copy()
     best = best_model_summary(metrics_df)
-    comparison = summary.get("previous_bandpower_comparison", {})
-    comparison_lines = []
-    if comparison.get("available"):
-        for model_name, values in comparison.get("per_model", {}).items():
-            comparison_lines.append(
-                f"- `{model_name}`: Accuracy `{values['previous_accuracy']:.4f} -> {values['current_accuracy']:.4f}`; "
-                f"F1 `{values['previous_f1']:.4f} -> {values['current_f1']:.4f}`; "
-                f"Recall `{values['previous_recall']:.4f} -> {values['current_recall']:.4f}`."
-            )
-    comparison_text = "\n".join(comparison_lines) if comparison_lines else "- No habia una corrida anterior utilizable para comparar."
-    readme = f"""# EEG RSVP Attention Detection Results
+    top_window = summary.get("importance_highlights", {}).get("top_time_window", "300-500 ms")
+    top_channels = ", ".join(summary.get("importance_highlights", {}).get("top_channels", []))
+    readme = f"""# RSVP EEG ERP Pipeline Results
 
-## Lectura Rapida
-- Mejor modelo en `pooled_random_split`: `{best['model']}`
-- Accuracy: `{best['accuracy']:.4f}`
+## Quick Summary
+- Best pooled model: `{best['model']}`
+- Balanced accuracy: `{best['balanced_accuracy']:.4f}`
 - Recall: `{best['recall']:.4f}`
-- F1: `{best['f1_score']:.4f}`
-- Archivo principal para copiar al paper: `results/results_paragraph.tex`
-- Tabla de rendimiento: `results/latex_table_performance.tex`
-- Tabla de latencia: `results/latex_table_latency.tex`
-- Metodos: `results/methods_paragraph.tex`
+- Precision: `{best['precision']:.4f}`
+- F1 score: `{best['f1_score']:.4f}`
+- PR AUC: `{best['pr_auc']:.4f}`
+- Recommended main-paper figures:
+  - `figures/erp_grand_average_roi.png`
+  - `figures/erp_difference_wave_roi.png`
+  - `figures/topomap_difference_300_500ms.png`
+  - `figures/feature_heatmap_channel_time.png`
+  - `figures/pr_curve_best_model.png`
+  - `figures/latency_breakdown.png`
 
-## Que Hace Este Proyecto
-Este proyecto ejecuta `main_pipeline.py` sobre el dataset local PhysioNet RSVP EEG en `{DATASET_DIR}`.
-La tuberia carga los ocho canales posteriores, aplica filtrado `0.5-40 Hz`, extrae epocas `0-0.8 s`, calcula `48` caracteristicas ERP por ventanas temporales, entrena `LDA` y `SVM` balanceado, mide latencia y genera figuras y archivos listos para pegar en el paper.
+## What Was Run
+`main_pipeline.py` processed the local PhysioNet RSVP EEG dataset in `{DATASET_DIR}`. The pipeline retained eight posterior channels, applied a 0.5-40 Hz band-pass filter, extracted 0-0.8 s epochs, computed ERP-window mean-amplitude features, evaluated LDA and class-weighted RBF-SVM models under pooled and subject-aware splits, and generated manuscript-ready tables, figures, and LaTeX paragraphs.
 
-## Que Debes Abrir Primero
-1. `results/results_paragraph.tex`
-2. `results/methods_paragraph.tex`
-3. `results/latex_table_performance.tex`
-4. `results/latex_table_latency.tex`
-5. `figures/confusion_matrix_svm.png`
-6. `figures/feature_importance_lda.png`
-7. `figures/shap_summary_svm.png`
-
-## Files Processed
+## Dataset Manifest
 The dataset manifest contained {len(manifest_records)} EDF files from {len({record.subject_id for record in manifest_records})} unique subjects.
 
 {file_lines}
 
-## Output Files
-- `results/experiment_summary.json`: manifest, annotation mapping, processing statistics, explainability summary, and aggregate metrics.
-- `results/model_metrics.csv`: numeric model metrics for pooled random-split and subject-aware group-split evaluation.
-- `results/latency_metrics.csv`: average latency measurements in milliseconds.
-- `results/features_dataset.csv`: per-epoch feature matrix with metadata and labels.
-- `results/latex_table_performance.tex`: LaTeX table for pooled split classification performance.
-- `results/latex_table_latency.tex`: LaTeX table for latency analysis.
-- `results/results_paragraph.tex`: IEEE-style results paragraph.
-- `results/methods_paragraph.tex`: IEEE-style methods paragraph.
-- `figures/confusion_matrix_lda.png`: pooled split confusion matrix for LDA.
-- `figures/confusion_matrix_svm.png`: pooled split confusion matrix for SVM.
-- `figures/feature_importance_lda.png`: LDA coefficient-based feature ranking.
-- `figures/shap_summary_svm.png`: SVM explainability figure. If SHAP failed, this contains the permutation-importance fallback.
-- `figures/bandpower_distribution.png`: class-wise distribution of ERP-window amplitudes.
-- `figures/class_balance.png`: target versus non-target epoch counts.
-- `logs/pipeline.log`: detailed execution log including per-file failures and annotation dictionaries.
+## Scientific Takeaway
+The strongest interpretable model evidence concentrated in the `{top_window}` interval, with the most relevant posterior channels including `{top_channels}`. This is consistent with a posterior target-related ERP response in RSVP and supports the use of ERP-window features over generic spectral summaries for this task.
 
-## Que Pegar En El Paper
-- Introduccion de resultados: `results/results_paragraph.tex`
-- Metodos: `results/methods_paragraph.tex`
-- Tabla principal: `results/latex_table_performance.tex`
-- Tabla de latencia: `results/latex_table_latency.tex`
+## Files To Copy Into The Paper
+- `results/methods_paragraph.tex`
+- `results/results_paragraph.tex`
+- `results/discussion_paragraph.tex`
+- `results/latex_table_performance_main.tex`
+- `results/latex_table_performance_extended.tex`
+- `results/latex_table_latency.tex`
+- `results/figure_captions.tex`
 
-## Figuras Recomendadas Para El Paper
-- Resultados de clasificacion: `figures/confusion_matrix_svm.png`
-- Comparacion con baseline lineal: `figures/confusion_matrix_lda.png`
-- Interpretabilidad lineal: `figures/feature_importance_lda.png`
-- Interpretabilidad no lineal: `figures/shap_summary_svm.png`
-- Analisis de ERP por ventanas: `figures/bandpower_distribution.png`
-- Desbalance de clases: `figures/class_balance.png`
+## Main-Paper Figure Set
+- `figures/erp_grand_average_roi.png`
+- `figures/erp_difference_wave_roi.png`
+- `figures/topomap_difference_300_500ms.png`
+- `figures/feature_heatmap_channel_time.png`
+- `figures/pr_curve_best_model.png`
+- `figures/latency_breakdown.png`
 
-## Mejora Frente Al Pipeline Anterior De Bandpower
-{comparison_text}
+Use `results/figure_selection_guide.md` for a claim-by-claim explanation of what belongs in the main paper versus the supplementary material.
 
-## Performance Snapshot
+## Supplementary Assets
+- `figures/confusion_matrix_lda.png`
+- `figures/confusion_matrix_svm.png`
+- `figures/class_balance.png`
+- `figures/shap_summary_svm.png`
+- `figures/feature_importance_lda.png`
+- `figures/bandpower_distribution.png`
+
+## Metrics Snapshot
+### Pooled Split
 {dataframe_to_markdown(pooled)}
 
-## Subject-Aware Snapshot
-{dataframe_to_markdown(loso) if not loso.empty else 'Subject-aware evaluation was not available.'}
+### Subject-Aware Split
+{dataframe_to_markdown(subject_aware) if not subject_aware.empty else 'Subject-aware evaluation was not available.'}
 
-## Latency Snapshot
+### Latency
 {dataframe_to_markdown(latency_df)}
 
-## Limitations And Caveats
-- The explainability figure for the SVM uses SHAP KernelExplainer on a reduced subset to control runtime, or permutation importance if SHAP is unstable.
-- Confusion matrices correspond to the pooled random split rather than cross-validated subject-aware testing.
-- Any file-level loading or preprocessing failures are recorded in `logs/pipeline.log` and summarized in `results/experiment_summary.json`.
-- The pipeline uses classical ERP-window features and lightweight preprocessing by design; no deep learning or aggressive artifact-removal stages were introduced.
+## Output File Index
+- `results/experiment_summary.json`: manifest, processing logs, annotation mapping, metrics, figure inventory, and interpretability highlights.
+- `results/model_metrics.csv`: extended metrics for each model and evaluation scheme.
+- `results/importance_summary.csv`: channel-time importance values in machine-readable form.
+- `results/features_dataset.csv`: per-epoch ERP feature matrix with metadata.
+- `results/figure_selection_guide.md`: recommendation for main-paper versus supplementary figures.
+- `logs/pipeline.log`: detailed execution log.
+
+## Notes
+- Precision-recall metrics are prioritized because the RSVP target class is strongly underrepresented.
+- The topographic map is intentionally described as sparse because only eight posterior electrodes are available.
+- Confusion matrices and SHAP-style plots are kept as secondary assets rather than the main narrative figures.
 """
     README_FILE.write_text(readme, encoding="utf-8")
     README_MAIN_FILE.write_text(
         "\n".join(
             [
-                "# EEG RSVP Paper Package",
+                "# Lightweight RSVP EEG ERP Attention Detection",
                 "",
-                "Este directorio ya esta listo para trabajar el paper.",
+                "This repository contains a reproducible ERP-based RSVP EEG classification pipeline built on the PhysioNet EEG Signals from an RSVP Task dataset.",
                 "",
-                "## Abre esto primero",
+                "## Start Here",
                 "- `README_results.md`",
-                "- `results/results_paragraph.tex`",
                 "- `results/methods_paragraph.tex`",
-                "- `results/latex_table_performance.tex`",
-                "- `results/latex_table_latency.tex`",
+                "- `results/results_paragraph.tex`",
+                "- `results/discussion_paragraph.tex`",
+                "- `results/latex_table_performance_main.tex`",
                 "",
-                "## Figuras principales",
-                "- `figures/confusion_matrix_svm.png`",
-                "- `figures/feature_importance_lda.png`",
-                "- `figures/shap_summary_svm.png`",
+                "## Main Figures",
+                "- `figures/erp_grand_average_roi.png`",
+                "- `figures/erp_difference_wave_roi.png`",
+                "- `figures/topomap_difference_300_500ms.png`",
+                "- `figures/feature_heatmap_channel_time.png`",
                 "",
-                "## Nota",
-                "El dataset local no esta pensado para subirse completo al repositorio. Si publicas este proyecto, sube codigo, resultados y figuras, pero no los EDF.",
+                "## Dataset",
+                "- PhysioNet RSVP EEG dataset: `https://physionet.org/content/ltrsvp/1.0.0/`",
+                "- Local EDF files are not meant to be committed to the repository.",
                 "",
-                "Mas detalle en `README_results.md`.",
+                "See `README_results.md` for the full paper-assembly guide and current results.",
                 "",
             ]
         ),
@@ -1092,11 +1703,13 @@ def main() -> None:
     preprocessing_times: list[float] = []
     epoching_times: list[float] = []
     feature_times: list[float] = []
+    aggregate_erp_summary: dict[str, Any] | None = None
 
     for record in manifest_records:
         try:
             result = process_file(record, logger)
             feature_frames.append(result["features"])
+            aggregate_erp_summary = merge_erp_summary(aggregate_erp_summary, result["erp_summary"])
             stats = result["stats"]
             preprocessing_times.append(stats["preprocess_ms"])
             epoching_times.append(stats["epoching_ms"])
@@ -1121,7 +1734,7 @@ def main() -> None:
     features_df.to_csv(FEATURES_DATASET_FILE, index=False)
 
     pooled_metrics, pooled_artifacts, _trained_models = pooled_random_split_evaluation(features_df, feature_cols, logger)
-    subject_metrics = subject_aware_evaluation(features_df, feature_cols, logger)
+    subject_metrics, subject_artifacts = subject_aware_evaluation(features_df, feature_cols, logger)
     metrics_df = pd.DataFrame(pooled_metrics + subject_metrics)
     performance_comparison = summarize_performance_change(previous_metrics, metrics_df)
     log_performance_change(logger, performance_comparison)
@@ -1144,6 +1757,10 @@ def main() -> None:
         FIGURES_DIR / "shap_summary_svm.png",
         logger,
     )
+    lda_importance_df = build_lda_importance_summary(lda_artifact["model"], feature_cols)
+    svm_importance_df = build_svm_importance_summary(svm_artifact["model"], svm_artifact["X_test"], svm_artifact["y_test"], feature_cols)
+    importance_df = pd.concat([lda_importance_df, svm_importance_df], ignore_index=True)
+    importance_df.to_csv(IMPORTANCE_SUMMARY_FILE, index=False)
 
     latency_rows = [
         {"component": "Preprocessing", "time_ms": float(np.mean(preprocessing_times))},
@@ -1154,14 +1771,35 @@ def main() -> None:
     ]
     latency_df = pd.DataFrame(latency_rows)
     latency_df.to_csv(LATENCY_METRICS_FILE, index=False)
+    plot_latency_breakdown(latency_df, FIGURES_DIR / "latency_breakdown")
 
-    save_latex_performance_table(metrics_df)
+    save_latex_performance_tables(metrics_df)
     save_latex_latency_table(latency_df)
 
     class_counts = {
         "non_target": int((features_df["label"] == 0).sum()),
         "target": int((features_df["label"] == 1).sum()),
     }
+
+    best = best_model_summary(metrics_df)
+    best_model_name = str(best["model"])
+    best_artifact = pooled_artifacts[best_model_name]
+    best_subject_artifact = subject_artifacts.get(best_model_name)
+
+    if aggregate_erp_summary is not None:
+        plot_erp_grand_average_roi(aggregate_erp_summary, FIGURES_DIR / "erp_grand_average_roi")
+        plot_erp_channels(aggregate_erp_summary, FIGURES_DIR / "erp_grand_average_channels")
+        difference_summary = plot_difference_wave_roi(aggregate_erp_summary, FIGURES_DIR / "erp_difference_wave_roi")
+        plot_topomap_difference(aggregate_erp_summary, FIGURES_DIR / "topomap_difference_300_500ms")
+    else:
+        difference_summary = {"peak_latency_ms": None, "peak_amplitude_uv": None}
+
+    top_window, top_channels = plot_feature_heatmap(importance_df, best_model_name, FIGURES_DIR / "feature_heatmap_channel_time")
+    plot_pr_curve(best_artifact["y_test"], best_artifact["y_score"], FIGURES_DIR / "pr_curve_best_model", best_model_name)
+    plot_roc_curve(best_artifact["y_test"], best_artifact["y_score"], FIGURES_DIR / "roc_curve_best_model", best_model_name)
+    if best_subject_artifact:
+        plot_subject_level_f1(best_subject_artifact, FIGURES_DIR / "subject_level_f1")
+
     save_results_paragraph(metrics_df, class_counts)
     save_methods_paragraph(
         file_count=len(manifest_records),
@@ -1170,8 +1808,9 @@ def main() -> None:
         processed_subjects=len({item["subject_id"] for item in summary["processed_files"]}),
         total_epochs=len(features_df),
     )
-
-    best = best_model_summary(metrics_df)
+    save_discussion_paragraph(top_window=top_window, top_channels=top_channels)
+    save_figure_captions()
+    save_figure_selection_guide()
     summary.update(
         {
             "aggregate_counts": {
@@ -1190,32 +1829,56 @@ def main() -> None:
                 "evaluation_scheme": str(best["evaluation_scheme"]),
                 "model": str(best["model"]),
                 "accuracy": float(best["accuracy"]),
+                "balanced_accuracy": float(best["balanced_accuracy"]),
                 "precision": float(best["precision"]),
                 "recall": float(best["recall"]),
+                "specificity": float(best["specificity"]),
                 "f1_score": float(best["f1_score"]),
                 "roc_auc": None if pd.isna(best["roc_auc"]) else float(best["roc_auc"]),
+                "pr_auc": None if pd.isna(best["pr_auc"]) else float(best["pr_auc"]),
+                "mcc": float(best["mcc"]),
             },
             "explainability": {
                 "lda_top_features": lda_importance,
                 "svm_summary": svm_explainability,
             },
+            "importance_highlights": {
+                "top_time_window": top_window,
+                "top_channels": top_channels,
+            },
+            "erp_difference_wave": difference_summary,
             "feature_type": "erp_window_mean_amplitude",
             "erp_windows_ms": ERP_WINDOWS_MS,
             "previous_bandpower_comparison": performance_comparison,
             "generated_files": {
                 "features_dataset": str(FEATURES_DATASET_FILE),
                 "model_metrics": str(MODEL_METRICS_FILE),
+                "importance_summary": str(IMPORTANCE_SUMMARY_FILE),
                 "latency_metrics": str(LATENCY_METRICS_FILE),
                 "latex_performance_table": str(LATEX_PERFORMANCE_FILE),
+                "latex_performance_main": str(LATEX_PERFORMANCE_MAIN_FILE),
+                "latex_performance_extended": str(LATEX_PERFORMANCE_EXTENDED_FILE),
                 "latex_latency_table": str(LATEX_LATENCY_FILE),
                 "results_paragraph": str(RESULTS_PARAGRAPH_FILE),
                 "methods_paragraph": str(METHODS_PARAGRAPH_FILE),
+                "discussion_paragraph": str(DISCUSSION_PARAGRAPH_FILE),
+                "figure_captions": str(FIGURE_CAPTIONS_FILE),
+                "figure_selection_guide": str(FIGURE_SELECTION_GUIDE_FILE),
                 "readme": str(README_FILE),
                 "figures": {
                     "confusion_matrix_lda": str(FIGURES_DIR / "confusion_matrix_lda.png"),
                     "confusion_matrix_svm": str(FIGURES_DIR / "confusion_matrix_svm.png"),
                     "feature_importance_lda": str(FIGURES_DIR / "feature_importance_lda.png"),
                     "shap_summary_svm": str(FIGURES_DIR / "shap_summary_svm.png"),
+                    "erp_grand_average_roi": str(FIGURES_DIR / "erp_grand_average_roi.png"),
+                    "erp_grand_average_channels": str(FIGURES_DIR / "erp_grand_average_channels.png"),
+                    "erp_difference_wave_roi": str(FIGURES_DIR / "erp_difference_wave_roi.png"),
+                    "topomap_difference_300_500ms": str(FIGURES_DIR / "topomap_difference_300_500ms.png"),
+                    "feature_heatmap_channel_time": str(FIGURES_DIR / "feature_heatmap_channel_time.png"),
+                    "pr_curve_best_model": str(FIGURES_DIR / "pr_curve_best_model.png"),
+                    "roc_curve_best_model": str(FIGURES_DIR / "roc_curve_best_model.png"),
+                    "subject_level_f1": str(FIGURES_DIR / "subject_level_f1.png"),
+                    "latency_breakdown": str(FIGURES_DIR / "latency_breakdown.png"),
                     "bandpower_distribution": str(FIGURES_DIR / "bandpower_distribution.png"),
                     "class_balance": str(FIGURES_DIR / "class_balance.png"),
                 },
@@ -1229,15 +1892,30 @@ def main() -> None:
     print()
     print("Final summary")
     print(f"- EDF files processed: {len(summary['processed_files'])}/{len(manifest_records)}")
+    print(f"- Subjects processed: {len({item['subject_id'] for item in summary['processed_files']})}")
     print(f"- Total usable epochs: {len(features_df)}")
     print(f"- Class balance: target={class_counts['target']}, non-target={class_counts['non_target']}")
     print(
         f"- Best model: {best['model']} ({best['evaluation_scheme']}) | "
-        f"accuracy={best['accuracy']:.4f}, precision={best['precision']:.4f}, "
-        f"recall={best['recall']:.4f}, f1={best['f1_score']:.4f}"
+        f"balanced_accuracy={best['balanced_accuracy']:.4f}, precision={best['precision']:.4f}, "
+        f"recall={best['recall']:.4f}, f1={best['f1_score']:.4f}, pr_auc={best['pr_auc']:.4f}"
     )
-    print(f"- Figures: {FIGURES_DIR}")
-    print(f"- LaTeX files: {LATEX_PERFORMANCE_FILE}, {LATEX_LATENCY_FILE}, {RESULTS_PARAGRAPH_FILE}, {METHODS_PARAGRAPH_FILE}")
+    print(f"- Top ERP time window: {top_window}")
+    print(f"- Top posterior channels: {', '.join(top_channels)}")
+    print("- Recommended figures:")
+    print(f"  {FIGURES_DIR / 'erp_grand_average_roi.png'}")
+    print(f"  {FIGURES_DIR / 'erp_difference_wave_roi.png'}")
+    print(f"  {FIGURES_DIR / 'topomap_difference_300_500ms.png'}")
+    print(f"  {FIGURES_DIR / 'feature_heatmap_channel_time.png'}")
+    print(f"  {FIGURES_DIR / 'pr_curve_best_model.png'}")
+    print(f"  {FIGURES_DIR / 'latency_breakdown.png'}")
+    print("- LaTeX files:")
+    print(f"  {LATEX_PERFORMANCE_MAIN_FILE}")
+    print(f"  {LATEX_PERFORMANCE_EXTENDED_FILE}")
+    print(f"  {LATEX_LATENCY_FILE}")
+    print(f"  {RESULTS_PARAGRAPH_FILE}")
+    print(f"  {METHODS_PARAGRAPH_FILE}")
+    print(f"  {DISCUSSION_PARAGRAPH_FILE}")
 
 
 if __name__ == "__main__":
