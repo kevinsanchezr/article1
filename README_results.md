@@ -121,8 +121,9 @@ The dataset manifest contained 62 EDF files from 11 unique subjects.
 - Desbalance de clases: `figures/class_balance.png`
 
 ## Mejora Frente Al Pipeline Anterior De Bandpower
-- `LDA`: Accuracy `0.7346 -> 0.7346`; F1 `0.3119 -> 0.3119`; Recall `0.6054 -> 0.6054`.
-- `SVM`: Accuracy `0.7957 -> 0.7957`; F1 `0.3357 -> 0.3357`; Recall `0.5196 -> 0.5196`.
+- `LDA`: Accuracy `0.5235 -> 0.7346`; F1 `0.1676 -> 0.3119`; Recall `0.4828 -> 0.6054`.
+- `SVM`: Accuracy `0.5982 -> 0.7957`; F1 `0.1556 -> 0.3357`; Recall `0.3725 -> 0.5196`.
+- Nota: esta mejora corresponde a la transicion real desde bandpower hacia caracteristicas ERP. La ultima corrida adicional solo regenero figuras y README con la misma configuracion ERP.
 
 ## Performance Snapshot
 | evaluation_scheme | model | accuracy | precision | recall | f1_score | roc_auc | support_total | support_non_target | support_target | tn | fp | fn | tp | train_samples | test_samples | train_subjects | test_subjects |

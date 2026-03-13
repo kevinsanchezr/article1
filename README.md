@@ -17,4 +17,7 @@ Este directorio ya esta listo para trabajar el paper.
 ## Nota
 El dataset local no esta pensado para subirse completo al repositorio. Si publicas este proyecto, sube codigo, resultados y figuras, pero no los EDF.
 
+## Repositorio remoto
+`https://github.com/kevinsanchezr/article1`
+
 Mas detalle en `README_results.md`.
