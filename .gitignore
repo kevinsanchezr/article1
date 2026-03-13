@@ -1,0 +1,14 @@
+.deps/
+.venv/
+.mplconfig/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+eeg-signals-from-an-rsvp-task-1.0.0/
+
+results/features_dataset.csv
+logs/
+
+.~lock.*
